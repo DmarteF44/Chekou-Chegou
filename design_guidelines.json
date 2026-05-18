@@ -1,0 +1,165 @@
+{
+  "project_name": "Chekou Ganhou",
+  "app_type": "hybrid_fullstack",
+  "platform": "React Native (Expo)",
+  "theme": "Light",
+  "archetype": "Organic & Earthy / Trust & Agility",
+  "design_tokens": {
+    "colors": {
+      "primary": "#059669",
+      "primary_light": "#10B981",
+      "primary_dark": "#047857",
+      "background_main": "#F9FAFB",
+      "surface_card": "#FFFFFF",
+      "text_primary": "#111827",
+      "text_secondary": "#4B5563",
+      "text_tertiary": "#9CA3AF",
+      "border": "#E5E7EB",
+      "success": "#059669",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6",
+      "white": "#FFFFFF",
+      "black": "#000000"
+    },
+    "typography": {
+      "font_family_heading": "Plus Jakarta Sans",
+      "font_family_body": "Plus Jakarta Sans",
+      "sizes": {
+        "h1": 32,
+        "h2": 24,
+        "h3": 20,
+        "h4": 18,
+        "body_large": 16,
+        "body_medium": 14,
+        "body_small": 12,
+        "caption": 10
+      },
+      "weights": {
+        "regular": "400",
+        "medium": "500",
+        "semi_bold": "600",
+        "bold": "700"
+      }
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 16,
+      "lg": 24,
+      "xl": 32,
+      "xxl": 48
+    },
+    "border_radius": {
+      "sm": 4,
+      "md": 8,
+      "lg": 12,
+      "xl": 16,
+      "pill": 9999
+    },
+    "shadows": {
+      "card": "0px 2px 8px rgba(0, 0, 0, 0.05)",
+      "floating_button": "0px 4px 12px rgba(5, 150, 105, 0.3)"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary rounded-xl py-md px-lg text-white font-semi_bold text-body_large flex items-center justify-center",
+      "secondary": "bg-white border-2 border-primary rounded-xl py-md px-lg text-primary font-semi_bold text-body_large flex items-center justify-center",
+      "ghost": "bg-transparent text-text_secondary font-medium",
+      "disabled": "bg-gray-200 text-gray-400 rounded-xl py-md px-lg"
+    },
+    "cards": {
+      "store_card": "bg-surface_card rounded-xl p-md shadow-card border border-border flex flex-row items-center space-x-md",
+      "order_card": "bg-surface_card rounded-xl p-md shadow-card border border-border flex flex-col space-y-sm"
+    },
+    "status_pills": {
+      "aguardando": "bg-warning/10 text-warning px-sm py-xs rounded-pill text-body_small font-semi_bold text-center",
+      "aceito": "bg-info/10 text-info px-sm py-xs rounded-pill text-body_small font-semi_bold text-center",
+      "em_andamento": "bg-primary_light/10 text-primary_light px-sm py-xs rounded-pill text-body_small font-semi_bold text-center",
+      "entregue": "bg-success/10 text-success px-sm py-xs rounded-pill text-body_small font-semi_bold text-center",
+      "cancelado": "bg-error/10 text-error px-sm py-xs rounded-pill text-body_small font-semi_bold text-center"
+    },
+    "inputs": {
+      "text_field": "border border-border rounded-lg px-md py-sm bg-white text-text_primary font-body_medium focus:border-primary",
+      "code_input": "border-2 border-border rounded-xl text-center text-h2 font-bold w-16 h-16 focus:border-primary"
+    },
+    "financial_breakdown": {
+      "container": "bg-gray-50 rounded-lg p-md mt-md",
+      "row": "flex flex-row justify-between py-xs",
+      "text_label": "text-text_secondary text-body_medium",
+      "text_value": "text-text_primary text-body_medium font-semi_bold",
+      "total_row": "flex flex-row justify-between py-sm mt-sm border-t border-border",
+      "total_label": "text-text_primary text-body_large font-bold",
+      "total_value": "text-primary text-body_large font-bold"
+    }
+  },
+  "screens": {
+    "shared": {
+      "role_selection": "Hero image at top, Large branding 'Chekou Ganhou', Two massive primary and secondary buttons for 'Sou Cliente' and 'Sou Entregador'"
+    },
+    "client": {
+      "home": "Header with user location. Promo banner swiper at top. Horizontal category list. Vertical list of 'Estabelecimentos' (store_cards) with image, name, delivery time.",
+      "create_order": "Store header. Free text input area for 'Sua Lista de Compras' (multiline). Input for 'Valor Estimado'. Checkbox for 'Aceito substituições'. Submit CTA.",
+      "checkout": "Order summary. Financial breakdown (Items estimate + Delivery fee). Payment simulation button. Address confirmation.",
+      "tracking": "Vertical stepped timeline (Aguardando -> Aceito -> Comprando -> A caminho). Delivery code clearly displayed (4 digits). Chat button floating or inline.",
+      "chat": "Standard chat interface. Green bubbles for user, Gray for driver. Input area with send button.",
+      "history": "List of past order_cards. Displays store, date, total paid, and status_pill."
+    },
+    "driver": {
+      "home": "Header with 'Saldo do Dia' (large green text). Toggle for 'Ficar Online'. List of 'Pedidos Disponíveis' (Accept/Reject buttons).",
+      "active_order": "Store address map link. Client list details. Button to 'Iniciar Compra'. Button to 'Enviar Foto da Nota'. Input to 'Digitar Valor Real da Compra'.",
+      "delivery_confirmation": "Input for 4-digit code provided by client to finalize. 'Finalizar Entrega' CTA.",
+      "earnings_history": "Financial breakdown of earnings (Valor da compra devolvido, Taxa de entrega ganha). Admin fee deductions displayed transparently."
+    }
+  },
+  "media": {
+    "images": {
+      "supermarket_1": {
+        "url": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxzdXBlcm1hcmtldCUyMGFpc2xlfGVufDB8fHx8MTc3OTExMDUzMHww&ixlib=rb-4.1.0&q=85",
+        "category": "store_thumbnail",
+        "description": "Supermercado Tosta 2"
+      },
+      "supermarket_2": {
+        "url": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwxfHxzdXBlcm1hcmtldCUyMGFpc2xlfGVufDB8fHx8MTc3OTExMDUzMHww&ixlib=rb-4.1.0&q=85",
+        "category": "store_thumbnail",
+        "description": "Mercadão da Economia"
+      },
+      "pharmacy": {
+        "url": "https://images.unsplash.com/photo-1576602976047-174e57a47881?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxwaGFybWFjeSUyMG1vZGVybnxlbnwwfHx8fDE3NzkxMTA1MzF8MA&ixlib=rb-4.1.0&q=85",
+        "category": "store_thumbnail",
+        "description": "Farmácia Parceira"
+      },
+      "delivery_driver": {
+        "url": "https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxkZWxpdmVyeSUyMHNjb290ZXJpZXN8ZW58MHx8fHwxNzc5MTEwNTMwfDA&ixlib=rb-4.1.0&q=85",
+        "category": "driver_mode_hero",
+        "description": "Delivery scooter driver"
+      },
+      "fresh_food_promo": {
+        "url": "https://images.unsplash.com/photo-1542838132-92c53300491e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMGZvb2QlMjBncm9jZXJpZXN8ZW58MHx8fHwxNzc5MTEwNTMxfDA&ixlib=rb-4.1.0&q=85",
+        "category": "promo_banner",
+        "description": "Fresh vegetables promo"
+      }
+    }
+  },
+  "micro_interactions": {
+    "button_press": "Scale down to 0.95 opacity 0.8 on press in.",
+    "list_scroll": "Smooth bounce effect on list boundaries (default RN ScrollView behavior).",
+    "status_change": "Fade in/out when order status updates.",
+    "screen_transition": "Standard horizontal slide (iOS style) or cross-fade."
+  },
+  "accessibility_and_testing": {
+    "test_id_rule": "ALL interactive components MUST have a data-testid. Examples: data-testid='client-home-store-list', data-testid='driver-accept-order-button'. Use role-based kebab-case naming.",
+    "contrast": "Ensure white text on primary green has ratio > 4.5:1. Avoid light gray text on white backgrounds.",
+    "touch_targets": "Minimum 48x48px for all actionable elements (buttons, icons, list items)."
+  },
+  "instructions_to_main_agent": [
+    "Use React Native generic components (View, Text, TouchableOpacity, ScrollView, TextInput) styled according to the tokens provided.",
+    "Ensure AsyncStorage is used for saving user role, cart data, and simulating orders locally.",
+    "Apply 'Plus Jakarta Sans' if possible, or fallback to system sans-serif but strictly avoid default serif/robot if custom font loading is configured.",
+    "The client code confirmation must have large, readable inputs (use the code_input component specs).",
+    "In the driver mode, distinctly separate the operational balance (what they spent buying goods) from platform/delivery fees to ensure clarity.",
+    "Implement the UI using a functional, component-based structure. Separate complex screens into smaller chunks (e.g., FinancialBreakdown component, StatusTracker component).",
+    "ALWAYS apply data-testid to buttons, inputs, and touchables."
+  ]
+}
