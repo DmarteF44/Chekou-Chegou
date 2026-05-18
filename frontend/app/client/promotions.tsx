@@ -5,6 +5,8 @@ import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { PROMOTIONS } from "@/src/data/mock";
 import { catalogService } from "@/src/services/catalogService";
+import { Ionicons } from "@expo/vector-icons";
+import { getSafeImageUrl } from "@/src/utils/images";
 
 export default function Promotions() {
   const [promotions, setPromotions] = useState<any[]>(PROMOTIONS);
@@ -17,7 +19,7 @@ export default function Promotions() {
       <ScrollView contentContainerStyle={styles.container}>
         {promotions.map((p) => (
           <View key={p.id} style={styles.card} testID={`promotion-${p.id}`}>
-            <Image source={{ uri: p.image ?? p.image_url }} style={styles.img} />
+            <ImageSlot uri={p.image ?? p.image_url} />
             <View style={styles.badge}><Text style={styles.badgeText}>{p.discount ?? p.discount_label}</Text></View>
             <View style={styles.body}>
               <Text style={styles.title}>{p.title}</Text>
@@ -31,6 +33,16 @@ export default function Promotions() {
   );
 }
 
+function ImageSlot({ uri }: { uri?: string | null }) {
+  const safeUri = getSafeImageUrl(uri);
+  if (safeUri) return <Image source={{ uri: safeUri }} style={styles.img} />;
+  return (
+    <View style={[styles.img, styles.imageFallback]}>
+      <Ionicons name="pricetag" size={28} color={colors.primary} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.md, gap: spacing.md },
@@ -39,6 +51,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borderLight,
   },
   img: { width: "100%", height: 160 },
+  imageFallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft },
   badge: {
     position: "absolute", top: spacing.sm, right: spacing.sm,
     backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill,

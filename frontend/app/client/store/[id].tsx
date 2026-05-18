@@ -10,6 +10,7 @@ import { Header } from "@/src/components/Header";
 import { Button } from "@/src/components/Button";
 import { catalogService } from "@/src/services/catalogService";
 import { CartItem, Product, Store } from "@/src/types/domain";
+import { getSafeImageUrl } from "@/src/utils/images";
 
 export default function StoreOrder() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,9 +27,14 @@ export default function StoreOrder() {
 
   useEffect(() => {
     async function load() {
-      const selectedStore = await catalogService.getStore(id as string);
-      setStore(selectedStore);
-      setProducts(await catalogService.listProducts(id as string));
+      try {
+        const selectedStore = await catalogService.getStore(id as string);
+        setStore(selectedStore);
+        setProducts(await catalogService.listProducts(id as string));
+      } catch {
+        setStore(null);
+        setProducts([]);
+      }
     }
     load();
   }, [id]);
@@ -116,10 +122,10 @@ export default function StoreOrder() {
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.storeHeader}>
-            <Image source={{ uri: store?.image_url ?? "" }} style={styles.storeImg} />
+            <ImageSlot uri={store?.image_url ?? store?.image} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.storeName}>{store?.name}</Text>
-              <Text style={styles.storeDesc}>{store?.notes}</Text>
+              <Text style={styles.storeName}>{store?.name ?? "Estabelecimento"}</Text>
+              <Text style={styles.storeDesc}>{store?.notes ?? store?.description ?? "Selecione os produtos para montar seu pedido."}</Text>
             </View>
           </View>
 
@@ -215,6 +221,16 @@ export default function StoreOrder() {
   );
 }
 
+function ImageSlot({ uri }: { uri?: string | null }) {
+  const safeUri = getSafeImageUrl(uri);
+  if (safeUri) return <Image source={{ uri: safeUri }} style={styles.storeImg} />;
+  return (
+    <View style={[styles.storeImg, styles.imageFallback]}>
+      <Ionicons name="storefront" size={22} color={colors.primary} />
+    </View>
+  );
+}
+
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 6 }}>
@@ -234,6 +250,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   storeImg: { width: 56, height: 56, borderRadius: radius.md },
+  imageFallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft },
   storeName: { fontSize: fontSize.bodyLarge, fontWeight: "700", color: colors.textPrimary },
   storeDesc: { fontSize: fontSize.small, color: colors.textSecondary, marginTop: 2 },
 

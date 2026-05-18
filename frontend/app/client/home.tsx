@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList, ImageStyle, StyleProp } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import { catalogService } from "@/src/services/catalogService";
 import { orderService } from "@/src/services/orderService";
 import { authService } from "@/src/services/authService";
 import { Store } from "@/src/types/domain";
+import { getSafeImageUrl } from "@/src/utils/images";
 
 export default function ClientHome() {
   const router = useRouter();
@@ -20,12 +21,18 @@ export default function ClientHome() {
 
   useEffect(() => {
     const refresh = async () => {
-      const all = await orderService.listMyOrders();
-      setActiveOrders(all.filter((o) => o.status !== "Entregue"));
-      setStores(await catalogService.listStores());
-      setPromotions(await catalogService.listPromotions());
-      const profile = await authService.getCurrentProfile();
-      if (profile?.name) setFirstName(profile.name.split(" ")[0]);
+      try {
+        const all = await orderService.listMyOrders();
+        setActiveOrders(all.filter((o) => o.status !== "Entregue"));
+        setStores(await catalogService.listStores());
+        setPromotions(await catalogService.listPromotions());
+        const profile = await authService.getCurrentProfile();
+        if (profile?.name) setFirstName(profile.name.split(" ")[0]);
+      } catch {
+        setActiveOrders([]);
+        setStores(await catalogService.listStores().catch(() => []));
+        setPromotions(await catalogService.listPromotions().catch(() => []));
+      }
     };
     refresh();
   }, []);
@@ -86,7 +93,7 @@ export default function ClientHome() {
               onPress={() => router.push("/client/promotions")}
               testID={`promo-card-${item.id}`}
             >
-              <Image source={{ uri: item.image ?? item.image_url }} style={styles.promoImg} />
+              <ImageSlot uri={item.image ?? item.image_url} style={styles.promoImg} icon="pricetag" />
               <View style={styles.discountBadge}>
                 <Text style={styles.discountText}>{item.discount ?? item.discount_label}</Text>
               </View>
@@ -116,7 +123,7 @@ export default function ClientHome() {
               onPress={() => router.push(`/client/store/${e.id}`)}
               testID={`store-card-${e.id}`}
             >
-              <Image source={{ uri: e.image_url ?? "" }} style={styles.storeImg} />
+              <ImageSlot uri={e.image_url ?? e.image} style={styles.storeImg} icon="storefront" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.storeName}>{e.name}</Text>
                 <Text style={styles.storeCat}>{e.category}</Text>
@@ -148,6 +155,16 @@ function QuickAction({
       <View style={styles.quickIcon}><Ionicons name={icon} size={20} color={colors.primary} /></View>
       <Text style={styles.quickLabel}>{label}</Text>
     </TouchableOpacity>
+  );
+}
+
+function ImageSlot({ uri, style, icon }: { uri?: string | null; style: StyleProp<ImageStyle>; icon: keyof typeof Ionicons.glyphMap }) {
+  const safeUri = getSafeImageUrl(uri);
+  if (safeUri) return <Image source={{ uri: safeUri }} style={style} />;
+  return (
+    <View style={[style, styles.imageFallback]}>
+      <Ionicons name={icon} size={24} color={colors.primary} />
+    </View>
   );
 }
 
@@ -213,6 +230,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borderLight,
   },
   storeImg: { width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.borderLight },
+  imageFallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.primarySoft },
   storeName: { fontSize: fontSize.bodyLarge, fontWeight: "700", color: colors.textPrimary },
   storeCat: { fontSize: fontSize.small, color: colors.textSecondary, marginTop: 2 },
   storeMeta: { flexDirection: "row", gap: spacing.sm, marginTop: 4 },

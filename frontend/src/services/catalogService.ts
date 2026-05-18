@@ -96,16 +96,24 @@ function mockStores(): Store[] {
 export const catalogService = {
   async listStores() {
     if (!isSupabaseConfigured()) return mockStores();
-    const { data, error } = await supabase.from("establishments").select("*").order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data as Store[]).map(normalizeStore);
+    try {
+      const { data, error } = await supabase.from("establishments").select("*").order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data as Store[]).map(normalizeStore);
+    } catch {
+      return mockStores();
+    }
   },
 
   async getStore(id: string) {
     if (!isSupabaseConfigured()) return mockStores().find((e) => e.id === id) ?? null;
-    const { data, error } = await supabase.from("establishments").select("*").eq("id", id).single();
-    if (error) throw error;
-    return normalizeStore(data as Store);
+    try {
+      const { data, error } = await supabase.from("establishments").select("*").eq("id", id).single();
+      if (error) throw error;
+      return normalizeStore(data as Store);
+    } catch {
+      return mockStores().find((e) => e.id === id) ?? null;
+    }
   },
 
   async upsertStore(store: Partial<Store>) {
@@ -128,11 +136,15 @@ export const catalogService = {
 
   async listProducts(establishmentId?: string) {
     if (!isSupabaseConfigured()) return fallbackProducts.map(normalizeProduct).filter((p) => !establishmentId || p.establishment_id === establishmentId || p.storeId === establishmentId);
-    let query = supabase.from("products").select("*").order("created_at", { ascending: true });
-    if (establishmentId) query = query.eq("establishment_id", establishmentId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as Product[]).map(normalizeProduct);
+    try {
+      let query = supabase.from("products").select("*").order("created_at", { ascending: true });
+      if (establishmentId) query = query.eq("establishment_id", establishmentId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data as Product[]).map(normalizeProduct);
+    } catch {
+      return fallbackProducts.map(normalizeProduct).filter((p) => !establishmentId || p.establishment_id === establishmentId || p.storeId === establishmentId);
+    }
   },
 
   async getProduct(id: string) {
@@ -162,16 +174,24 @@ export const catalogService = {
 
   async listCoupons() {
     if (!isSupabaseConfigured()) return COUPONS;
-    const { data, error } = await supabase.from("coupons").select("*").order("created_at", { ascending: true });
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase.from("coupons").select("*").order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    } catch {
+      return COUPONS;
+    }
   },
 
   async listPromotions() {
     if (!isSupabaseConfigured()) return PROMOTIONS;
-    const { data, error } = await supabase.from("promotions").select("*, establishments(name)").order("created_at", { ascending: true });
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase.from("promotions").select("*, establishments(name)").order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    } catch {
+      return PROMOTIONS;
+    }
   },
 
   subscribe(callback: () => void) {
