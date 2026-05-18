@@ -1,100 +1,152 @@
-// driverService — handles partner application, levels, status changes.
-// FUTURE: move to Supabase tables (drivers, driver_applications, driver_levels).
-import { authService, User } from "./authService";
-import { storage } from "@/src/utils/storage";
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { authService } from "@/src/services/authService";
 
 export type DriverLevel = 1 | 2 | 3 | 4;
-
 export type DriverApplication = {
-  userId: string;
+  id: string;
+  userId?: string;
+  user_id?: string;
   fullName: string;
+  full_name?: string;
   cpf: string;
-  phone: string;
-  email: string;
-  vehicleType: "moto" | "carro" | "bicicleta";
+  phone?: string;
+  email?: string;
+  vehicleType: string;
+  vehicle_type?: string;
   plate?: string;
+  vehicle_plate?: string;
   cnh?: string;
   region: string;
   pixKey: string;
-  acceptedTerms: boolean;
+  pix_key?: string;
+  status?: "pending" | "approved" | "rejected" | "blocked";
   submittedAt: number;
+  created_at?: string;
 };
 
-const APPS_KEY = "chekou_driver_apps_v1";
-
-export const DRIVER_LEVELS: Record<DriverLevel, {
-  name: string;
-  limit: number;
-  minDeliveries: number;
-  description: string;
-  color: string;
-}> = {
-  1: { name: "Novo parceiro", limit: 50, minDeliveries: 0, description: "Começo da jornada", color: "#9CA3AF" },
-  2: { name: "Parceiro confiável", limit: 150, minDeliveries: 20, description: "Volume estável", color: "#3B82F6" },
-  3: { name: "Parceiro premium", limit: 300, minDeliveries: 80, description: "Alta confiança", color: "#10B981" },
-  4: { name: "Parceiro elite", limit: 500, minDeliveries: 200, description: "Top performance", color: "#F59E0B" },
+export const DRIVER_LEVELS: Record<DriverLevel, { name: string; limit: number; color: string; description: string }> = {
+  1: { name: "Inicial", limit: 50, color: "#64748B", description: "Limite inicial para compras pequenas." },
+  2: { name: "Confiável", limit: 100, color: "#2563EB", description: "Limite ampliado após bom histórico." },
+  3: { name: "Avançado", limit: 200, color: "#059669", description: "Para motoristas com operação consistente." },
+  4: { name: "Master", limit: 350, color: "#D97706", description: "Maior limite operacional." },
 };
 
-async function loadApps(): Promise<DriverApplication[]> {
-  const raw = (await storage.getItem<string>(APPS_KEY, "")) || "";
-  return raw ? (JSON.parse(raw) as DriverApplication[]) : [];
+async function currentProfileId() {
+  return (await authService.getCurrentProfile())?.id ?? null;
 }
 
-async function saveApps(list: DriverApplication[]) {
-  await storage.setItem(APPS_KEY, JSON.stringify(list));
+function normalizeApplication(app: any): DriverApplication | null {
+  if (!app) return null;
+  return {
+    ...app,
+    userId: app.userId ?? app.user_id,
+    fullName: app.fullName ?? app.full_name ?? "",
+    cpf: app.cpf ?? "",
+    vehicleType: app.vehicleType ?? app.vehicle_type ?? "",
+    plate: app.plate ?? app.vehicle_plate,
+    pixKey: app.pixKey ?? app.pix_key,
+    region: app.region ?? "",
+    submittedAt: app.submittedAt ?? (app.created_at ? new Date(app.created_at).getTime() : Date.now()),
+  };
+}
+
+function applicationToDb(application: Record<string, any>, userId: string | null) {
+  return {
+    user_id: application.userId ?? userId,
+    full_name: application.fullName,
+    cpf: application.cpf,
+    phone: application.phone,
+    vehicle_type: application.vehicleType,
+    vehicle_plate: application.plate,
+    cnh: application.cnh,
+    region: application.region,
+    pix_key: application.pixKey,
+    status: "pending",
+  };
 }
 
 export const driverService = {
-  async submitApplication(app: DriverApplication): Promise<void> {
-    const list = await loadApps();
-    const idx = list.findIndex((a) => a.userId === app.userId);
-    if (idx >= 0) list[idx] = app; else list.push(app);
-    await saveApps(list);
-    await authService.update(app.userId, { driverStatus: "pending" });
+  async applyAsDriver(application: Record<string, unknown>) {
+    if (!isSupabaseConfigured()) return normalizeApplication({ id: `mock_driver_app_${Date.now()}`, status: "pending", submittedAt: Date.now(), ...application });
+    const userId = await currentProfileId();
+    const { data, error } = await supabase
+      .from("driver_applications")
+      .insert(applicationToDb(application, userId))
+      .select("*")
+      .single();
+    if (error) throw error;
+    await supabase.from("profiles").update({ role: "driver_pending", driver_status: "pending" }).eq("id", userId);
+    return normalizeApplication(data);
   },
 
-  async getApplication(userId: string): Promise<DriverApplication | undefined> {
-    const list = await loadApps();
-    return list.find((a) => a.userId === userId);
+  async getDriverApplication(userId?: string) {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase.from("driver_applications").select("*").eq("user_id", userId ?? await currentProfileId()).maybeSingle();
+    if (error) throw error;
+    return normalizeApplication(data);
   },
 
-  async getAllApplications(): Promise<DriverApplication[]> {
-    return loadApps();
+  async listPendingDrivers() {
+    if (!isSupabaseConfigured()) return [];
+    const { data, error } = await supabase.from("driver_applications").select("*, profiles(*)").eq("status", "pending").order("created_at");
+    if (error) throw error;
+    return (data ?? []).map(normalizeApplication);
   },
 
-  async approve(userId: string): Promise<void> {
-    await authService.update(userId, { driverStatus: "approved", role: "driver", driverLevel: 1 });
+  async approveDriver(userId: string, notes?: string) {
+    if (!isSupabaseConfigured()) return;
+    await supabase.from("profiles").update({ role: "driver", driver_status: "approved", is_blocked: false }).eq("id", userId);
+    await supabase.from("driver_applications").update({ status: "approved", reviewed_by: await currentProfileId(), reviewed_at: new Date().toISOString(), notes }).eq("user_id", userId);
+    await supabase.from("driver_wallets").upsert({ driver_id: userId });
   },
 
-  async reject(userId: string): Promise<void> {
-    await authService.update(userId, { driverStatus: "rejected" });
+  async rejectDriver(userId: string, notes?: string) {
+    if (!isSupabaseConfigured()) return;
+    await supabase.from("profiles").update({ role: "client", driver_status: "rejected" }).eq("id", userId);
+    await supabase.from("driver_applications").update({ status: "rejected", reviewed_by: await currentProfileId(), reviewed_at: new Date().toISOString(), notes }).eq("user_id", userId);
   },
 
-  async block(userId: string): Promise<void> {
-    await authService.update(userId, { driverStatus: "blocked" });
+  async blockDriver(userId: string) {
+    if (!isSupabaseConfigured()) return;
+    await supabase.from("profiles").update({ driver_status: "blocked", is_blocked: true }).eq("id", userId);
   },
 
-  async unblock(userId: string): Promise<void> {
-    await authService.update(userId, { driverStatus: "approved" });
+  async unblockDriver(userId: string) {
+    if (!isSupabaseConfigured()) return;
+    await supabase.from("profiles").update({ driver_status: "approved", is_blocked: false }).eq("id", userId);
   },
 
-  async setLevel(userId: string, level: DriverLevel): Promise<void> {
-    await authService.update(userId, { driverLevel: level });
+  async updateDriverLevel(userId: string, driverLevel: number) {
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase.from("profiles").update({ driver_level: driverLevel }).eq("id", userId);
+    if (error) throw error;
   },
 
-  getLevelInfo(level: DriverLevel) {
-    return DRIVER_LEVELS[level];
+  async submitApplication(application: Record<string, unknown>) {
+    return this.applyAsDriver(application);
   },
 
-  // Driver-level guard: can this driver pick up an order with this estimated value?
-  canAcceptOrder(user: User, estimatedValue: number): { ok: boolean; reason?: string } {
-    if (user.role !== "driver") return { ok: false, reason: "Você não é um Motorista Parceiro." };
-    if (user.driverStatus !== "approved") return { ok: false, reason: "Sua conta de entregador não está ativa." };
-    const level = (user.driverLevel ?? 1) as DriverLevel;
-    const limit = DRIVER_LEVELS[level].limit;
-    if (estimatedValue > limit) {
-      return { ok: false, reason: `Limite operacional do seu nível (${DRIVER_LEVELS[level].name}): R$ ${limit}.` };
-    }
-    return { ok: true };
+  async getApplication(userId?: string) {
+    return this.getDriverApplication(userId);
+  },
+
+  async approve(userId: string, notes?: string) {
+    return this.approveDriver(userId, notes);
+  },
+
+  async reject(userId: string, notes?: string) {
+    return this.rejectDriver(userId, notes);
+  },
+
+  async block(userId: string) {
+    return this.blockDriver(userId);
+  },
+
+  async unblock(userId: string) {
+    return this.unblockDriver(userId);
+  },
+
+  async setLevel(userId: string, level: DriverLevel) {
+    return this.updateDriverLevel(userId, level);
   },
 };

@@ -8,8 +8,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
-import { orderStore } from "@/src/data/orderStore";
 import { Order, ChatMessage } from "@/src/data/mock";
+import { orderService } from "@/src/services/orderService";
 
 type Role = "client" | "driver";
 
@@ -22,31 +22,25 @@ export default function ChatScreen() {
 
   useEffect(() => {
     const refresh = async () => {
-      const o = await orderStore.getById(orderId as string);
+      const o = await orderService.getOrder(orderId as string);
       setOrder(o ?? null);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 50);
     };
     refresh();
-    return orderStore.subscribe(refresh);
   }, [orderId]);
 
   async function send() {
     const t = text.trim();
     if (!t || !order) return;
     const msg: ChatMessage = { id: `m_${Date.now()}`, from: me, text: t, at: Date.now() };
-    await orderStore.addMessage(order.id, msg);
+    await orderService.addOrderMessage(order.id, msg.text, me);
     setText("");
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
     // simulate auto-reply if from client and driver hasn't replied yet
     if (me === "client") {
       setTimeout(async () => {
-        await orderStore.addMessage(order.id, {
-          id: `m_${Date.now() + 1}`,
-          from: "driver",
-          text: "Recebi! Já estou a caminho.",
-          at: Date.now(),
-        });
+        await orderService.addOrderMessage(order.id, "Recebi! Já estou a caminho.", "driver");
       }, 1200);
     }
   }

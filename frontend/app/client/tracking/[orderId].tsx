@@ -7,8 +7,8 @@ import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { StatusTracker } from "@/src/components/StatusTracker";
 import { FinancialBreakdown, money } from "@/src/components/FinancialBreakdown";
-import { orderStore } from "@/src/data/orderStore";
 import { Order } from "@/src/data/mock";
+import { orderService } from "@/src/services/orderService";
 
 export default function Tracking() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -17,11 +17,10 @@ export default function Tracking() {
 
   useEffect(() => {
     const refresh = async () => {
-      const o = await orderStore.getById(orderId as string);
+      const o = await orderService.getOrder(orderId as string);
       setOrder(o ?? null);
     };
     refresh();
-    return orderStore.subscribe(refresh);
   }, [orderId]);
 
   if (!order) {

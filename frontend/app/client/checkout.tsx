@@ -7,9 +7,9 @@ import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { Button } from "@/src/components/Button";
 import { FinancialBreakdown, money } from "@/src/components/FinancialBreakdown";
-import { COUPONS, Order } from "@/src/data/mock";
-import { orderStore, generateCode, generateId } from "@/src/data/orderStore";
-import { paymentService } from "@/src/services/paymentService";
+import { COUPONS } from "@/src/data/mock";
+import { orderService } from "@/src/services/orderService";
+import { CartItem } from "@/src/types/domain";
 
 const DELIVERY_FEE = 8;
 const PLATFORM_FEE_RATE = 0.07; // 7%
@@ -17,11 +17,11 @@ const PLATFORM_FEE_RATE = 0.07; // 7%
 export default function Checkout() {
   const router = useRouter();
   const p = useLocalSearchParams<{
-    storeId: string; storeName: string; items: string; notes: string; estimated: string;
+    storeId: string; storeName: string; items: string; notes: string; estimated: string; cart?: string;
   }>();
 
   const estValue = Math.max(0, Number(String(p.estimated || "0").replace(",", ".")) || 0);
-  const safety = +(estValue * 0.1).toFixed(2); // 10% margem
+  const safety = +Math.max(estValue * 0.15, 10).toFixed(2);
   const platformFee = +(estValue * PLATFORM_FEE_RATE).toFixed(2);
   let deliveryFee = DELIVERY_FEE;
 
@@ -57,40 +57,44 @@ export default function Checkout() {
 
   async function pay() {
     setPaying(true);
-    const draft: Order = {
-      id: generateId(),
-      storeId: p.storeId as string,
-      storeName: p.storeName as string,
-      items: (p.items as string) || "",
-      notes: (p.notes as string) || "",
-      estimatedValue: estValue,
-      safetyMargin: safety,
+    // Simulated payment
+    await new Promise((r) => setTimeout(r, 1200));
+    let cart: CartItem[];
+    try {
+      cart = JSON.parse(String(p.cart ?? "[]")) as CartItem[];
+    } catch {
+      cart = [];
+    }
+    if (cart.length === 0) {
+      cart = [{
+        id: `custom_${Date.now()}`,
+        type: "custom",
+        name: String(p.items ?? ""),
+        quantity: 1,
+        unitPriceEstimate: estValue,
+        totalEstimate: estValue,
+        storeId: String(p.storeId),
+        notes: String(p.notes ?? ""),
+        allowSubstitution: true,
+      }];
+    }
+    const order = await orderService.createOrderWithItems({
+      storeId: String(p.storeId),
+      storeName: String(p.storeName),
+      items: cart,
+      notes: String(p.notes ?? ""),
       deliveryFee,
       platformFee,
-      total,
-      couponCode: appliedCoupon?.code,
       discount,
-      status: "Aguardando entregador",
-      createdAt: Date.now(),
-      confirmationCode: generateCode(),
-      invoicePhotoSent: false,
-      goodsPhotoSent: false,
-      chat: [],
-      paid: false,
-    };
-    // Simulated payment flow — in production, this will hit Mercado Pago via backend.
-    const intent = await paymentService.createPaymentIntent(draft);
-    await new Promise((r) => setTimeout(r, 1000));
-    await paymentService.markPaymentAsApproved(intent);
-    const order = { ...draft, paid: true };
-    await orderStore.create(order);
+      couponCode: appliedCoupon?.code,
+    });
     setPaying(false);
     router.replace(`/client/tracking/${order.id}`);
   }
 
   const rows = [
     { label: "Valor estimado da compra", value: estValue },
-    { label: "Margem de segurança (10%)", value: safety, hint: "Devolvida se sobrar" },
+    { label: "Margem de segurança (15% ou R$10)", value: safety, hint: "Devolvida se sobrar" },
     { label: "Taxa de entrega", value: deliveryFee },
     { label: "Taxa da plataforma (7%)", value: platformFee },
   ];

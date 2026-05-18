@@ -66,7 +66,7 @@ export default function AdminStores() {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.notice}>
           O Chekou Ganhou é uma plataforma independente de compra assistida e entrega.
-          Estabelecimentos exibidos como "mais pedidos" não representam parceria oficial, salvo indicação expressa.
+          Estabelecimentos exibidos como tipo mais pedidos não representam parceria oficial, salvo indicação expressa.
         </Text>
         {stores.map((s) => (
           <View key={s.id} style={styles.card}>
@@ -104,8 +104,8 @@ export default function AdminStores() {
           {editing && (
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
               <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-                <Field label="Nome" value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} testID="store-name" />
-                <Field label="Categoria" value={editing.category} onChange={(v) => setEditing({ ...editing, category: v })} testID="store-cat" />
+                <Field label="Nome" value={editing.name} onChange={(v: string) => setEditing({ ...editing, name: v })} testID="store-name" />
+                <Field label="Categoria" value={editing.category} onChange={(v: string) => setEditing({ ...editing, category: v })} testID="store-cat" />
 
                 <Text style={styles.label}>Tipo</Text>
                 <View style={styles.typeRow}>
@@ -121,12 +121,12 @@ export default function AdminStores() {
                   ))}
                 </View>
 
-                <Field label="Endereço" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} testID="store-addr" />
-                <Field label="Telefone (opcional)" value={editing.phone ?? ""} onChange={(v) => setEditing({ ...editing, phone: v })} testID="store-phone" />
-                <Field label="Tempo estimado" value={editing.deliveryTime} onChange={(v) => setEditing({ ...editing, deliveryTime: v })} testID="store-time" />
-                <Field label="Taxa base (R$)" value={String(editing.baseFee)} onChange={(v) => setEditing({ ...editing, baseFee: Number(v) || 0 })} keyboardType="numeric" testID="store-fee" />
-                <Field label="Imagem (URL)" value={editing.image} onChange={(v) => setEditing({ ...editing, image: v })} testID="store-img" />
-                <Field label="Observações" value={editing.notes ?? ""} onChange={(v) => setEditing({ ...editing, notes: v })} testID="store-notes" multiline />
+                <Field label="Endereço" value={editing.address} onChange={(v: string) => setEditing({ ...editing, address: v })} testID="store-addr" />
+                <Field label="Telefone (opcional)" value={editing.phone ?? ""} onChange={(v: string) => setEditing({ ...editing, phone: v })} testID="store-phone" />
+                <Field label="Tempo estimado" value={editing.deliveryTime} onChange={(v: string) => setEditing({ ...editing, deliveryTime: v })} testID="store-time" />
+                <Field label="Taxa base (R$)" value={String(editing.baseFee)} onChange={(v: string) => setEditing({ ...editing, baseFee: Number(v) || 0 })} keyboardType="numeric" testID="store-fee" />
+                <Field label="Imagem (URL)" value={editing.image} onChange={(v: string) => setEditing({ ...editing, image: v })} testID="store-img" />
+                <Field label="Observações" value={editing.notes ?? ""} onChange={(v: string) => setEditing({ ...editing, notes: v })} testID="store-notes" multiline />
 
                 <TouchableOpacity style={styles.toggleRow} onPress={() => setEditing({ ...editing, active: !editing.active })} testID="store-active-toggle">
                   <View style={[styles.toggle, editing.active && styles.toggleOn]} />

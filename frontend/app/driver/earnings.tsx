@@ -4,25 +4,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
-import { orderStore } from "@/src/data/orderStore";
 import { Order } from "@/src/data/mock";
 import { money } from "@/src/components/FinancialBreakdown";
 import { StatusPill } from "@/src/components/StatusPill";
-import { authService, User } from "@/src/services/authService";
-import { driverService, DRIVER_LEVELS, DriverLevel } from "@/src/services/driverService";
+import { orderService } from "@/src/services/orderService";
+
+const DRIVER_ID = "driver_1";
 
 export default function Earnings() {
-  const [me, setMe] = useState<User | null>(null);
   const [history, setHistory] = useState<Order[]>([]);
 
   useEffect(() => {
-    const refresh = async () => {
-      const u = await authService.getSession();
-      setMe(u);
-      if (u) setHistory(await orderStore.getDriverHistory(u.id));
-    };
+    const refresh = async () => setHistory(await orderService.listDriverHistory(DRIVER_ID));
     refresh();
-    return orderStore.subscribe(refresh);
   }, []);
 
   const total = history.reduce((acc, o) => acc + o.deliveryFee, 0);
@@ -33,8 +27,6 @@ export default function Earnings() {
       acc + (o.actualValue !== undefined ? Math.max(0, o.estimatedValue + o.safetyMargin - o.actualValue) : 0),
     0
   );
-  const level = (me?.driverLevel ?? 1) as DriverLevel;
-  const levelInfo = DRIVER_LEVELS[level];
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -44,10 +36,6 @@ export default function Earnings() {
           <Text style={styles.balanceLabel}>Saldo disponível</Text>
           <Text style={styles.balanceValue}>{money(total)}</Text>
           <Text style={styles.balanceHint}>Liberado após confirmação por código</Text>
-          <View style={styles.levelBadge}>
-            <Ionicons name="medal" size={14} color={colors.white} />
-            <Text style={styles.levelBadgeText}>Nível {level} • {levelInfo.name}</Text>
-          </View>
         </View>
 
         <Text style={styles.section}>Resumo financeiro</Text>
@@ -125,11 +113,4 @@ const styles = StyleSheet.create({
 
   empty: { alignItems: "center", gap: 8, padding: spacing.xl, backgroundColor: colors.surface, borderRadius: radius.lg },
   emptyText: { color: colors.textSecondary },
-  levelBadge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    marginTop: spacing.sm, alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill,
-  },
-  levelBadgeText: { color: colors.white, fontWeight: "700", fontSize: fontSize.small },
 });

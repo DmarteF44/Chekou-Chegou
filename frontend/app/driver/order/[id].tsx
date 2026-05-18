@@ -8,28 +8,25 @@ import { Header } from "@/src/components/Header";
 import { Button } from "@/src/components/Button";
 import { StatusTracker } from "@/src/components/StatusTracker";
 import { FinancialBreakdown, money } from "@/src/components/FinancialBreakdown";
-import { orderStore } from "@/src/data/orderStore";
 import { Order, ORDER_STATUSES, OrderStatus } from "@/src/data/mock";
-import { authService, User } from "@/src/services/authService";
-import { driverService, DRIVER_LEVELS, DriverLevel } from "@/src/services/driverService";
+import { orderService } from "@/src/services/orderService";
+
+const DRIVER_ID = "driver_1";
 
 export default function DriverOrder() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [me, setMe] = useState<User | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [actualValue, setActualValue] = useState("");
   const [codeInput, setCodeInput] = useState("");
 
   useEffect(() => {
     const refresh = async () => {
-      setMe(await authService.getSession());
-      const o = await orderStore.getById(id as string);
+      const o = await orderService.getOrder(id as string);
       setOrder(o ?? null);
       if (o?.actualValue !== undefined) setActualValue(String(o.actualValue));
     };
     refresh();
-    return orderStore.subscribe(refresh);
   }, [id]);
 
   if (!order) {
@@ -41,17 +38,11 @@ export default function DriverOrder() {
     );
   }
 
-  const isMine = order.driverId === me?.id;
-  const canAccept = order.status === "Aguardando entregador" && !!me;
+  const isMine = order.driverId === DRIVER_ID;
+  const canAccept = order.status === "Aguardando entregador";
 
   async function acceptOrder() {
-    if (!me) { Alert.alert("Atenção", "Faça login como entregador."); return; }
-    const check = driverService.canAcceptOrder(me, order!.estimatedValue);
-    if (!check.ok) {
-      Alert.alert("Limite operacional", check.reason ?? "Você não pode aceitar este pedido.");
-      return;
-    }
-    await orderStore.update(order!.id, { driverId: me.id, status: "Entregador aceitou" });
+    await orderService.acceptOrder(order!.id);
     Alert.alert("Pedido aceito!", "Siga ao estabelecimento.");
   }
 
@@ -59,7 +50,7 @@ export default function DriverOrder() {
     const idx = ORDER_STATUSES.indexOf(order!.status);
     if (idx < 0 || idx >= ORDER_STATUSES.length - 1) return;
     const next: OrderStatus = ORDER_STATUSES[idx + 1];
-    await orderStore.setStatus(order!.id, next);
+    await orderService.updateOrderStatus(order!.id, next);
   }
 
   async function saveActualValue() {
@@ -68,16 +59,16 @@ export default function DriverOrder() {
       Alert.alert("Valor inválido", "Informe o valor real da compra.");
       return;
     }
-    await orderStore.update(order!.id, { actualValue: v });
+    await orderService.submitActualValue(order!.id, v);
     Alert.alert("Valor salvo!", `Compra real: ${money(v)}`);
   }
 
   async function sendInvoice() {
-    await orderStore.update(order!.id, { invoicePhotoSent: true });
+    await orderService.updateOrderStatus(order!.id, order!.status);
     Alert.alert("Nota fiscal enviada", "Foto da nota fiscal compartilhada com o cliente (simulado).");
   }
   async function sendGoods() {
-    await orderStore.update(order!.id, { goodsPhotoSent: true });
+    await orderService.updateOrderStatus(order!.id, order!.status);
     Alert.alert("Mercadorias enviadas", "Foto das mercadorias compartilhada com o cliente (simulado).");
   }
 
@@ -86,10 +77,10 @@ export default function DriverOrder() {
       Alert.alert("Código incorreto", "Confira o código informado pelo cliente.");
       return;
     }
-    await orderStore.setStatus(order!.id, "Entregue");
-    // Navigate FIRST (Alert per-button onPress doesn't fire reliably on react-native-web).
-    router.replace("/driver/home");
-    Alert.alert("Entrega concluída!", "Taxa de entrega liberada para seu saldo.");
+    await orderService.updateOrderStatus(order!.id, "Entregue");
+    Alert.alert("Entrega concluída!", "Taxa de entrega liberada para seu saldo.", [
+      { text: "OK", onPress: () => router.replace("/driver/home") },
+    ]);
   }
 
   const nextLabel = (() => {

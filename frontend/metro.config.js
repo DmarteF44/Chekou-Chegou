@@ -5,6 +5,24 @@ const { FileStore } = require('metro-cache');
 
 const config = getDefaultConfig(__dirname);
 
+config.resolver.resolverMainFields = ['react-native', 'browser', 'module', 'main'];
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules || {}),
+  ws: path.resolve(__dirname, 'node_modules/@supabase/realtime-js/node_modules/ws/browser.js'),
+};
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'ws') {
+    return {
+      filePath: path.resolve(__dirname, 'node_modules/@supabase/realtime-js/node_modules/ws/browser.js'),
+      type: 'sourceFile',
+    };
+  }
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform);
+};
+
 // Use a stable on-disk store (shared across web/android)
 const root = process.env.METRO_CACHE_ROOT || path.join(__dirname, '.metro-cache');
 config.cacheStores = [

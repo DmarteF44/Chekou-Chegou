@@ -181,7 +181,7 @@ export default function AdminIndex() {
           <>
             <Text style={styles.notice}>
               O Chekou Ganhou é uma plataforma independente de compra assistida e entrega.
-              Estabelecimentos exibidos como "mais pedidos" não representam parceria oficial,
+              Estabelecimentos exibidos como tipo mais pedidos não representam parceria oficial,
               salvo indicação expressa.
             </Text>
             <Button

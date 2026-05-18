@@ -28,6 +28,7 @@ export default function AdminProducts() {
   function newOne() {
     setEditing({
       id: `p_${Date.now()}`, name: "", category: "Mercado",
+      establishment_id: stores[0]?.id ?? "tosta-2",
       storeId: stores[0]?.id ?? "tosta-2",
       price: 0, active: true, confirmInStore: true, notes: "",
     });
@@ -132,8 +133,8 @@ export default function AdminProducts() {
                 <Field label="Preço promocional (opcional)" value={String(editing.promoPrice ?? "")} onChange={(v: string) => setEditing({ ...editing, promoPrice: v ? Number(v.replace(",", ".")) : undefined })} keyboardType="numeric" testID="product-promo" />
                 <Field label="Observações" value={editing.notes ?? ""} onChange={(v: string) => setEditing({ ...editing, notes: v })} multiline testID="product-notes" />
 
-                <Row label="Ativo" value={editing.active} onToggle={() => setEditing({ ...editing, active: !editing.active })} testID="product-active" />
-                <Row label="Sujeito à confirmação no local" value={editing.confirmInStore} onToggle={() => setEditing({ ...editing, confirmInStore: !editing.confirmInStore })} testID="product-confirm" />
+                <Row label="Ativo" value={!!editing.active} onToggle={() => setEditing({ ...editing, active: !editing.active })} testID="product-active" />
+                <Row label="Sujeito à confirmação no local" value={!!editing.confirmInStore} onToggle={() => setEditing({ ...editing, confirmInStore: !editing.confirmInStore })} testID="product-confirm" />
 
                 <Button title="Salvar" onPress={save} testID="product-save" />
                 <Button title="Cancelar" variant="ghost" onPress={() => setEditing(null)} testID="product-cancel" />

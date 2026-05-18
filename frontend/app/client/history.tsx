@@ -7,17 +7,16 @@ import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { StatusPill } from "@/src/components/StatusPill";
 import { money } from "@/src/components/FinancialBreakdown";
-import { orderStore } from "@/src/data/orderStore";
 import { Order } from "@/src/data/mock";
+import { orderService } from "@/src/services/orderService";
 
 export default function History() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    const refresh = async () => setOrders(await orderStore.getAll());
+    const refresh = async () => setOrders(await orderService.listMyOrders());
     refresh();
-    return orderStore.subscribe(refresh);
   }, []);
 
   return (

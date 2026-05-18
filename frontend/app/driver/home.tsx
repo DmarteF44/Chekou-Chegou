@@ -1,48 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
-import { orderStore } from "@/src/data/orderStore";
 import { Order, DEFAULT_DRIVER_NAME } from "@/src/data/mock";
 import { money } from "@/src/components/FinancialBreakdown";
 import { StatusPill } from "@/src/components/StatusPill";
-import { authService, User } from "@/src/services/authService";
-import { driverService, DRIVER_LEVELS, DriverLevel } from "@/src/services/driverService";
+import { orderService } from "@/src/services/orderService";
+
+const DRIVER_ID = "driver_1";
 
 export default function DriverHome() {
   const router = useRouter();
-  const [me, setMe] = useState<User | null>(null);
   const [available, setAvailable] = useState<Order[]>([]);
   const [active, setActive] = useState<Order[]>([]);
   const [completed, setCompleted] = useState<Order[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
-      const u = await authService.getSession();
-      if (!u || u.role !== "driver") { router.replace("/"); return; }
-      if (u.driverStatus === "blocked") { router.replace("/driver/blocked"); return; }
-      if (u.driverStatus !== "approved") { router.replace("/driver/pending"); return; }
-      setMe(u);
-      setAvailable(await orderStore.getAvailable());
-      setActive(await orderStore.getDriverActive(u.id));
-      setCompleted(await orderStore.getDriverHistory(u.id));
+      setAvailable(await orderService.listAvailableOrders());
+      setActive(await orderService.listDriverActive(DRIVER_ID));
+      setCompleted(await orderService.listDriverHistory(DRIVER_ID));
     };
     refresh();
-    const a = orderStore.subscribe(refresh);
-    const b = authService.subscribe(refresh);
-    return () => { a(); b(); };
-  }, [router]);
-
-  async function logout() {
-    await authService.logout();
-    router.replace("/auth/login");
-  }
-
-  if (!me) return null;
-  const level = (me.driverLevel ?? 1) as DriverLevel;
-  const levelInfo = DRIVER_LEVELS[level];
+  }, []);
 
   const todayEarnings = completed
     .filter((o) => new Date(o.createdAt).toDateString() === new Date().toDateString())
@@ -57,25 +39,16 @@ export default function DriverHome() {
             <Ionicons name="bicycle" size={22} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greet}>Olá, {me.name.split(" ")[0]}</Text>
-            <Text style={styles.subtitle}>Área do Motorista Parceiro</Text>
+            <Text style={styles.greet}>Olá, {DEFAULT_DRIVER_NAME.split(" ")[0]}</Text>
+            <Text style={styles.subtitle}>Você está online</Text>
           </View>
           <TouchableOpacity
-            onPress={logout}
+            onPress={() => router.push("/")}
             style={styles.profileBtn}
-            testID="driver-logout"
+            testID="driver-back-to-roles"
           >
-            <Ionicons name="log-out-outline" size={20} color={colors.primary} />
+            <Ionicons name="swap-horizontal" size={20} color={colors.primary} />
           </TouchableOpacity>
-        </View>
-
-        {/* Level strip */}
-        <View style={[styles.levelStrip, { borderColor: levelInfo.color }]}>
-          <Ionicons name="medal" size={20} color={levelInfo.color} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.levelTitle} testID="driver-level-name">Nível {level} • {levelInfo.name}</Text>
-            <Text style={styles.levelHint} testID="driver-level-limit">Limite operacional: até R$ {levelInfo.limit}</Text>
-          </View>
         </View>
 
         {/* Earnings */}
@@ -236,11 +209,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: fontSize.bodyLarge, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.sm },
   emptyText: { color: colors.textSecondary, textAlign: "center", fontSize: fontSize.small },
-  levelStrip: {
-    marginHorizontal: spacing.md, marginBottom: spacing.md, padding: spacing.sm,
-    borderRadius: radius.lg, borderWidth: 1.5, flexDirection: "row",
-    alignItems: "center", gap: spacing.sm, backgroundColor: colors.surface,
-  },
-  levelTitle: { fontWeight: "800", color: colors.textPrimary, fontSize: fontSize.body },
-  levelHint: { color: colors.textSecondary, fontSize: fontSize.small, marginTop: 2 },
 });

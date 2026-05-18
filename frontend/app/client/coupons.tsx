@@ -1,12 +1,17 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { COUPONS } from "@/src/data/mock";
+import { catalogService } from "@/src/services/catalogService";
 
 export default function Coupons() {
+  const [coupons, setCoupons] = useState<any[]>(COUPONS);
+  useEffect(() => {
+    catalogService.listCoupons().then(setCoupons).catch(() => setCoupons(COUPONS));
+  }, []);
   function copy(code: string) {
     Alert.alert("Cupom selecionado!", `Use o código ${code} no checkout do seu pedido.`);
   }
@@ -16,7 +21,7 @@ export default function Coupons() {
       <Header title="Cupons" />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.intro}>Toque em um cupom para copiar e usar no seu próximo pedido.</Text>
-        {COUPONS.map((c) => (
+        {coupons.map((c) => (
           <TouchableOpacity
             key={c.code}
             style={styles.card}

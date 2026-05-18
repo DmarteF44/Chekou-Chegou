@@ -1,136 +1,166 @@
-// authService — currently backed by AsyncStorage.
-// FUTURE: replace internal store calls with Supabase auth (signIn/signUp/session).
-// All public function signatures should remain the same.
+import { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { storage } from "@/src/utils/storage";
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { Profile } from "@/src/types/domain";
 
-export type Role = "client" | "driver" | "admin";
-export type DriverStatus = "none" | "pending" | "approved" | "rejected" | "blocked";
+const MOCK_PROFILE_KEY = "chekou_mock_profile_v1";
 
-export type User = {
-  id: string;
-  name: string;
+export type User = Profile & {
   email: string;
   phone: string;
-  password: string; // mock only — never store plaintext in real backend
-  role: Role;
-  driverStatus: DriverStatus;
-  driverLevel?: 1 | 2 | 3 | 4;
-  createdAt: number;
+  driverStatus: Profile["driver_status"];
+  driverLevel: number;
 };
 
-const USERS_KEY = "chekou_users_v1";
-const SESSION_KEY = "chekou_session_v1";
-const SEED_KEY = "chekou_seed_v1";
+const defaultMockProfile: Profile = {
+  id: "mock-client",
+  name: "Maria Cliente",
+  email: "cliente@chekou.local",
+  role: "client",
+  driver_status: "none",
+  driver_level: 1,
+  is_blocked: false,
+};
 
-const SEED_USERS: User[] = [
-  {
-    id: "u_client_1", name: "Maria Cliente", email: "cliente@chekou.com",
-    phone: "(64) 90000-0001", password: "123456",
-    role: "client", driverStatus: "none", createdAt: Date.now(),
-  },
-  {
-    id: "u_driver_1", name: "João Entregador", email: "entregador@chekou.com",
-    phone: "(64) 90000-0002", password: "123456",
-    role: "driver", driverStatus: "approved", driverLevel: 2, createdAt: Date.now(),
-  },
-  {
-    id: "u_driver_2", name: "Carlos Pendente", email: "pendente@chekou.com",
-    phone: "(64) 90000-0003", password: "123456",
-    role: "client", driverStatus: "pending", createdAt: Date.now(),
-  },
-  {
-    id: "u_admin_1", name: "Admin Chekou", email: "admin@chekou.com",
-    phone: "(64) 90000-0000", password: "admin123",
-    role: "admin", driverStatus: "none", createdAt: Date.now(),
-  },
-];
-
-let cache: User[] | null = null;
 const listeners = new Set<() => void>();
 
-async function load(): Promise<User[]> {
-  if (cache) return cache;
-  await ensureSeed();
-  const raw = (await storage.getItem<string>(USERS_KEY, "")) || "";
-  cache = raw ? (JSON.parse(raw) as User[]) : [];
-  return cache!;
+function notify() {
+  listeners.forEach((listener) => listener());
 }
 
-async function persist() {
-  await storage.setItem(USERS_KEY, JSON.stringify(cache ?? []));
-  listeners.forEach((l) => l());
+function toUser(profile: Profile | null): User | null {
+  if (!profile) return null;
+  return {
+    ...profile,
+    email: profile.email ?? "",
+    phone: profile.phone ?? "",
+    driverStatus: profile.driver_status,
+    driverLevel: profile.driver_level ?? 1,
+  };
 }
 
-async function ensureSeed() {
-  const seeded = await storage.getItem<string>(SEED_KEY, "");
-  if (seeded === "1") return;
-  await storage.setItem(USERS_KEY, JSON.stringify(SEED_USERS));
-  await storage.setItem(SEED_KEY, "1");
-  cache = [...SEED_USERS];
+async function setMockProfile(profile: Profile) {
+  await storage.setItem(MOCK_PROFILE_KEY, JSON.stringify(profile));
+  notify();
+  return profile;
 }
 
 export const authService = {
-  subscribe(cb: () => void) { listeners.add(cb); return () => listeners.delete(cb); },
+  async signUp(params: { email: string; password: string; name: string; phone?: string }) {
+    if (!isSupabaseConfigured()) {
+      return setMockProfile({ ...defaultMockProfile, id: `mock_${Date.now()}`, email: params.email, name: params.name, phone: params.phone });
+    }
 
-  async getAllUsers(): Promise<User[]> {
-    return [...(await load())];
+    const { data, error } = await supabase.auth.signUp({
+      email: params.email,
+      password: params.password,
+      options: { data: { name: params.name, phone: params.phone } },
+    });
+    if (error) throw error;
+    return data.user;
   },
 
-  async getById(id: string): Promise<User | undefined> {
-    const users = await load();
-    return users.find((u) => u.id === id);
+  async login(email: string, password: string) {
+    if (!isSupabaseConfigured()) {
+      const role = email.includes("admin") ? "super_admin" : email.includes("driver") ? "driver" : "client";
+      return setMockProfile({
+        ...defaultMockProfile,
+        id: role === "driver" ? "driver_1" : role === "super_admin" ? "mock-admin" : "mock-client",
+        email,
+        name: role === "driver" ? "João Entregador" : role === "super_admin" ? "Admin Master" : "Maria Cliente",
+        role,
+        driver_status: role === "driver" ? "approved" : "none",
+      } as Profile);
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
   },
 
-  async login(email: string, password: string): Promise<User | null> {
-    const users = await load();
-    const u = users.find(
-      (x) => x.email.toLowerCase() === email.trim().toLowerCase() && x.password === password
-    );
-    if (!u) return null;
-    await storage.setItem(SESSION_KEY, u.id);
-    listeners.forEach((l) => l());
-    return u;
-  },
-
-  async signup(input: { name: string; email: string; phone: string; password: string }): Promise<User | null> {
-    const users = await load();
-    if (users.find((u) => u.email.toLowerCase() === input.email.trim().toLowerCase())) return null;
-    const newUser: User = {
-      id: `u_${Date.now()}`,
-      name: input.name.trim(),
-      email: input.email.trim(),
-      phone: input.phone.trim(),
-      password: input.password,
-      role: "client",
-      driverStatus: "none",
-      createdAt: Date.now(),
-    };
-    users.push(newUser);
-    cache = users;
-    await persist();
-    await storage.setItem(SESSION_KEY, newUser.id);
-    return newUser;
+  async logout() {
+    if (!isSupabaseConfigured()) {
+      await storage.removeItem(MOCK_PROFILE_KEY);
+      notify();
+      return;
+    }
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    notify();
   },
 
   async getSession(): Promise<User | null> {
-    const id = await storage.getItem<string>(SESSION_KEY, "");
-    if (!id) return null;
-    const u = await this.getById(id);
-    return u ?? null;
+    return toUser(await this.getCurrentProfile());
   },
 
-  async logout(): Promise<void> {
-    await storage.removeItem(SESSION_KEY);
-    listeners.forEach((l) => l());
+  async getSupabaseSession(): Promise<Session | null> {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
   },
 
-  async update(id: string, patch: Partial<User>): Promise<User | undefined> {
-    const users = await load();
-    const idx = users.findIndex((u) => u.id === id);
-    if (idx < 0) return undefined;
-    users[idx] = { ...users[idx], ...patch };
-    cache = users;
-    await persist();
-    return users[idx];
+  async getCurrentUser(): Promise<SupabaseUser | null> {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data.user;
+  },
+
+  async getCurrentProfile(): Promise<Profile | null> {
+    if (!isSupabaseConfigured()) {
+      const raw = await storage.getItem<string>(MOCK_PROFILE_KEY, "");
+      if (!raw) return defaultMockProfile;
+      try {
+        return JSON.parse(raw) as Profile;
+      } catch {
+        return defaultMockProfile;
+      }
+    }
+
+    const user = await this.getCurrentUser();
+    if (!user) return null;
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+    if (error) throw error;
+    return data as Profile;
+  },
+
+  onAuthStateChange(callback: (event: AuthChangeEvent | "MOCK", session: Session | null) => void) {
+    if (!isSupabaseConfigured()) {
+      callback("MOCK", null);
+      return { data: { subscription: { unsubscribe() {} } } };
+    }
+    return supabase.auth.onAuthStateChange(callback);
+  },
+
+  async signup(params: { email: string; password: string; name: string; phone?: string }) {
+    return this.signUp(params);
+  },
+
+  async getAllUsers(): Promise<User[]> {
+    if (!isSupabaseConfigured()) {
+      const me = toUser(await this.getCurrentProfile());
+      return me ? [me] : [];
+    }
+    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data as Profile[]).map((profile) => toUser(profile)!);
+  },
+
+  async getById(id: string): Promise<User | null> {
+    if (!isSupabaseConfigured()) {
+      const users = await this.getAllUsers();
+      return users.find((user) => user.id === id) ?? null;
+    }
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return toUser(data as Profile | null);
+  },
+
+  subscribe(callback: () => void) {
+    listeners.add(callback);
+    return () => {
+      listeners.delete(callback);
+    };
   },
 };
