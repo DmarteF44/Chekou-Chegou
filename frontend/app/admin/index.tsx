@@ -6,80 +6,72 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Header } from "@/src/components/Header";
 import { Button } from "@/src/components/Button";
+import { orderStore } from "@/src/data/orderStore";
+import { COUPONS, PROMOTIONS, Order } from "@/src/data/mock";
 import { StatusPill } from "@/src/components/StatusPill";
 import { money } from "@/src/components/FinancialBreakdown";
-import { authService, User } from "@/src/services/authService";
 import { adminService } from "@/src/services/adminService";
+import { authService } from "@/src/services/authService";
+import { catalogService } from "@/src/services/catalogService";
+import { canAccessAdmin, isSuperAdmin } from "@/src/services/securityService";
+import { Profile, Store } from "@/src/types/domain";
 import { orderService } from "@/src/services/orderService";
-import { driverService, DRIVER_LEVELS } from "@/src/services/driverService";
-import { Order } from "@/src/data/mock";
 
-const TABS = ["Resumo", "Pedidos", "Motoristas", "Usuários", "Lojas", "Produtos", "Cupons", "Disputas"] as const;
+const TABS = ["Dashboard", "Pedidos", "Usuários", "Entregadores", "Lojas", "Cupons", "Promoções", "Admin Master", "Disputas"] as const;
 type Tab = typeof TABS[number];
 
-export default function AdminIndex() {
+export default function AdminPanel() {
   const router = useRouter();
-  const [me, setMe] = useState<User | null>(null);
-  const [tab, setTab] = useState<Tab>("Resumo");
-  const [users, setUsers] = useState<User[]>([]);
+  const [tab, setTab] = useState<Tab>("Dashboard");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState<any>(null);
-
-  useEffect(() => {
-    (async () => {
-      const u = await authService.getSession();
-      if (!u || u.role !== "admin") {
-        Alert.alert("Acesso restrito", "Faça login como admin para acessar.");
-        router.replace("/auth/login");
-        return;
-      }
-      setMe(u);
-    })();
-  }, [router]);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [coupons, setCoupons] = useState<any[]>(COUPONS);
+  const [promotions, setPromotions] = useState<any[]>(PROMOTIONS);
+  const [summary, setSummary] = useState({ totalUsers: 0, totalOrders: 0, inProgressOrders: 0, gmv: 0, pendingDrivers: 0 });
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     const refresh = async () => {
-      setUsers(await authService.getAllUsers());
-      setOrders(await orderService.list());
-      setStats(await adminService.stats());
+      const current = await authService.getCurrentProfile();
+      setProfile(current);
+      if (!canAccessAdmin(current)) return;
+      setOrders(await orderService.listAllOrders().catch(() => orderStore.getAll()));
+      setUsers(await adminService.listUsers());
+      setStores(await catalogService.listStores());
+      setCoupons(await catalogService.listCoupons());
+      setPromotions(await catalogService.listPromotions());
+      setSummary(await adminService.dashboardSummary());
     };
     refresh();
-    const a = authService.subscribe(refresh);
-    const b = orderService.subscribe(refresh);
-    return () => { a(); b(); };
   }, []);
 
-  async function logout() {
-    await authService.logout();
-    router.replace("/auth/login");
-  }
+  const inProgress = orders.filter((o) => o.status !== "Entregue");
 
-  async function resetOrders() {
-    Alert.alert("Apagar pedidos", "Apagar todos os pedidos simulados?", [
+  async function reset() {
+    Alert.alert("Resetar dados", "Apagar todos os pedidos simulados?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Apagar", style: "destructive", onPress: () => orderService.clearAll() },
+      { text: "Apagar", style: "destructive", onPress: async () => { await orderStore.clearAll(); } },
     ]);
   }
 
-  if (!me) return null;
-
-  const drivers = users.filter((u) => u.role === "driver" || u.driverStatus !== "none");
-  const clients = users.filter((u) => u.role === "client" && u.driverStatus === "none");
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Header
-        title="Painel Admin"
-        subtitle={me.name}
-        back={false}
-        right={
-          <TouchableOpacity onPress={logout} testID="admin-logout">
-            <Ionicons name="log-out-outline" size={22} color={colors.error} />
-          </TouchableOpacity>
-        }
-      />
+      <Header title="Painel Admin" right={
+        <TouchableOpacity onPress={reset} testID="admin-reset">
+          <Ionicons name="trash-outline" size={20} color={colors.error} />
+        </TouchableOpacity>
+      } />
+      {!canAccessAdmin(profile) ? (
+        <View style={styles.empty}>
+          <Ionicons name="lock-closed-outline" size={40} color={colors.textTertiary} />
+          <Text style={styles.emptyText}>Acesso restrito a admin ou super_admin.</Text>
+        </View>
+      ) : null}
+      {canAccessAdmin(profile) ? (
+      <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {TABS.map((t) => (
+        {TABS.filter((t) => t !== "Admin Master" || isSuperAdmin(profile)).map((t) => (
           <TouchableOpacity
             key={t}
             onPress={() => setTab(t)}
@@ -92,26 +84,27 @@ export default function AdminIndex() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.body}>
-        {tab === "Resumo" && stats && (
-          <>
-            <View style={styles.statsGrid}>
-              <Stat label="Usuários" value={stats.totalUsers} />
-              <Stat label="Motoristas" value={stats.totalDrivers} />
-              <Stat label="Pendentes" value={stats.pendingDrivers} color={colors.warning} />
-              <Stat label="Em andamento" value={stats.ordersInProgress} color={colors.info} />
-              <Stat label="Concluídos" value={stats.ordersDone} color={colors.primary} />
-              <Stat label="GMV" value={`R$ ${stats.gmv.toFixed(0)}`} color={colors.primary} />
-            </View>
-          </>
+        {tab === "Dashboard" && (
+          <StatRow stats={[
+            { label: "Usuários", value: summary.totalUsers },
+            { label: "Pedidos", value: summary.totalOrders },
+            { label: "Em andamento", value: summary.inProgressOrders },
+            { label: "GMV", value: money(summary.gmv) },
+            { label: "Pendentes", value: summary.pendingDrivers },
+          ]} />
         )}
 
         {tab === "Pedidos" && (
           <>
-            {orders.length === 0 && <Empty text="Nenhum pedido ainda." />}
+            <StatRow stats={[
+              { label: "Em andamento", value: inProgress.length },
+              { label: "Concluídos", value: orders.length - inProgress.length },
+              { label: "GMV (R$)", value: orders.reduce((a, o) => a + o.total, 0).toFixed(0) },
+            ]} />
             {orders.map((o) => (
               <TouchableOpacity
                 key={o.id}
-                style={styles.row}
+                style={styles.card}
                 onPress={() => router.push(`/client/tracking/${o.id}`)}
                 testID={`admin-order-${o.id}`}
               >
@@ -123,138 +116,108 @@ export default function AdminIndex() {
                 <Text style={styles.amount}>{money(o.total)}</Text>
               </TouchableOpacity>
             ))}
-            {orders.length > 0 && <Button title="Apagar todos os pedidos" variant="ghost" onPress={resetOrders} testID="admin-reset-orders" />}
-          </>
-        )}
-
-        {tab === "Motoristas" && (
-          <>
-            {drivers.length === 0 && <Empty text="Nenhum motorista cadastrado." />}
-            {drivers.map((u) => {
-              const level = (u.driverLevel ?? 1) as 1|2|3|4;
-              return (
-                <TouchableOpacity
-                  key={u.id}
-                  style={styles.row}
-                  onPress={() => router.push(`/admin/driver/${u.id}`)}
-                  testID={`admin-driver-${u.id}`}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>{u.name}</Text>
-                    <Text style={styles.muted}>{u.email}</Text>
-                    <View style={{ flexDirection: "row", gap: 6, marginTop: 4, alignItems: "center" }}>
-                      <DriverStatusBadge status={u.driverStatus} />
-                      {u.role === "driver" && (
-                        <View style={[styles.levelBadge, { backgroundColor: DRIVER_LEVELS[level].color + "22" }]}>
-                          <Text style={[styles.levelBadgeText, { color: DRIVER_LEVELS[level].color }]}>
-                            Nível {level}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              );
-            })}
+            {orders.length === 0 && <Empty text="Nenhum pedido ainda." />}
           </>
         )}
 
         {tab === "Usuários" && (
           <>
-            {clients.length === 0 && <Empty text="Nenhum cliente cadastrado." />}
-            {clients.map((u) => (
-              <View key={u.id} style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>{u.name}</Text>
-                  <Text style={styles.muted}>{u.email} • {u.phone}</Text>
-                </View>
-                <View style={styles.badge}>
-                  <Text style={[styles.badgeText, { color: colors.primary }]}>Cliente</Text>
-                </View>
-              </View>
+            {(users.length ? users : [
+              { id: "1", name: "Maria Cliente", email: "cliente@chekou.com", role: "client", driver_status: "none" },
+              { id: "2", name: "João Entregador", email: "driver@chekou.com", role: "driver", driver_status: "approved" },
+            ] as Profile[]).map((u) => (
+              <Card key={u.id} title={u.name} subtitle={u.email ?? ""} badge={u.is_blocked ? "Bloqueado" : u.role} />
             ))}
+          </>
+        )}
+
+        {tab === "Entregadores" && (
+          <>
+            {users.filter((u) => u.role === "driver" || u.role === "driver_pending" || u.driver_status === "pending").map((u) => (
+              <Card key={u.id} title={u.name} subtitle={`${u.driver_status} • nível ${u.driver_level ?? 1}`} badge={u.role} />
+            ))}
+            {users.length === 0 && <Card title="João Entregador" subtitle="Moto • Ativo" badge="Mock" />}
           </>
         )}
 
         {tab === "Lojas" && (
           <>
-            <Text style={styles.notice}>
-              O Chekou Ganhou é uma plataforma independente de compra assistida e entrega.
-              Estabelecimentos exibidos como tipo mais pedidos não representam parceria oficial,
-              salvo indicação expressa.
-            </Text>
-            <Button
-              title="Gerenciar estabelecimentos"
-              onPress={() => router.push("/admin/establishments")}
-              testID="admin-go-stores"
-              icon={<Ionicons name="storefront" size={18} color={colors.white} />}
-            />
+            {stores.map((e) => (
+              <Card key={e.id} title={e.name} subtitle={`${e.category} • ${e.delivery_time ?? ""}`} badge={e.active ? "Ativa" : "Inativa"} />
+            ))}
           </>
-        )}
-
-        {tab === "Produtos" && (
-          <Button
-            title="Gerenciar produtos"
-            onPress={() => router.push("/admin/products")}
-            testID="admin-go-products"
-            icon={<Ionicons name="cube" size={18} color={colors.white} />}
-          />
         )}
 
         {tab === "Cupons" && (
           <>
-            <Card title="PRIMEIRA10" subtitle="R$10 off no primeiro pedido" badge="Pedido" />
-            <Card title="CHEKOU5" subtitle="R$5 off em qualquer pedido" badge="Pedido" />
-            <Card title="ENTREGAOFF" subtitle="Entrega grátis" badge="Entrega" />
+            {coupons.map((c) => (
+              <Card key={c.code} title={c.code} subtitle={c.description} badge={c.type === "delivery" ? "Entrega" : "Pedido"} />
+            ))}
+            <Button title="Criar novo cupom" variant="secondary"
+              onPress={() => Alert.alert("Em breve", "Criação de cupons disponível na próxima versão.")}
+              testID="admin-new-coupon" />
           </>
         )}
 
-        {tab === "Disputas" && <Empty text="Nenhuma disputa em aberto." />}
+        {tab === "Promoções" && (
+          <>
+            {promotions.map((p) => (
+              <Card key={p.id} title={p.title} subtitle={`${p.storeName ?? p.establishments?.name ?? ""} • ${p.discount ?? p.discount_label ?? ""}`} badge="Ativa" />
+            ))}
+          </>
+        )}
+
+        {tab === "Admin Master" && (
+          <>
+            <Card title="Super admin ativo" subtitle={profile?.email ?? ""} badge="super_admin" />
+            <Card title="Permissões" subtitle="Pode promover admins, bloquear usuários e gerenciar catálogo." badge="Master" />
+          </>
+        )}
+
+        {tab === "Disputas" && (
+          <Empty text="Nenhuma disputa em aberto. 🎉" />
+        )}
       </ScrollView>
+      </>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function Stat({ label, value, color = colors.primary }: { label: string; value: any; color?: string }) {
+function StatRow({ stats }: { stats: { label: string; value: number | string }[] }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={[styles.statValue, { color }]}>{String(value)}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.statsRow}>
+      {stats.map((s) => (
+        <View key={s.label} style={styles.stat}>
+          <Text style={styles.statValue}>{s.value}</Text>
+          <Text style={styles.statLabel}>{s.label}</Text>
+        </View>
+      ))}
     </View>
   );
 }
-function Card({ title, subtitle, badge }: { title: string; subtitle: string; badge?: string }) {
+
+function Card({ title, subtitle, badge, badgeColor = colors.primary }: { title: string; subtitle: string; badge?: string; badgeColor?: string }) {
   return (
-    <View style={styles.row}>
+    <View style={styles.card}>
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.muted}>{subtitle}</Text>
       </View>
-      {badge && <View style={styles.badge}><Text style={[styles.badgeText, { color: colors.primary }]}>{badge}</Text></View>}
+      {badge && (
+        <View style={[styles.badge, { backgroundColor: badgeColor + "22" }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{badge}</Text>
+        </View>
+      )}
     </View>
   );
 }
+
 function Empty({ text }: { text: string }) {
   return (
     <View style={styles.empty}>
-      <Ionicons name="folder-open-outline" size={36} color={colors.textTertiary} />
+      <Ionicons name="folder-open-outline" size={40} color={colors.textTertiary} />
       <Text style={styles.emptyText}>{text}</Text>
-    </View>
-  );
-}
-function DriverStatusBadge({ status }: { status: User["driverStatus"] }) {
-  const cfg: Record<User["driverStatus"], { bg: string; fg: string; label: string }> = {
-    none: { bg: colors.borderLight, fg: colors.textSecondary, label: "Sem status" },
-    pending: { bg: colors.warningSoft, fg: colors.warning, label: "Pendente" },
-    approved: { bg: colors.primarySoft, fg: colors.primary, label: "Aprovado" },
-    rejected: { bg: colors.errorSoft, fg: colors.error, label: "Reprovado" },
-    blocked: { bg: colors.errorSoft, fg: colors.error, label: "Bloqueado" },
-  };
-  const c = cfg[status];
-  return (
-    <View style={[styles.badge, { backgroundColor: c.bg }]}>
-      <Text style={[styles.badgeText, { color: c.fg }]}>{c.label}</Text>
     </View>
   );
 }
@@ -267,26 +230,20 @@ const styles = StyleSheet.create({
   tabText: { color: colors.textSecondary, fontWeight: "600", fontSize: fontSize.small },
   tabTextActive: { color: colors.white },
   body: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
-  row: {
+  card: {
     backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md,
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
     borderWidth: 1, borderColor: colors.borderLight,
   },
-  title: { color: colors.textPrimary, fontWeight: "700", fontSize: fontSize.bodyLarge },
+  title: { color: colors.textPrimary, fontSize: fontSize.bodyLarge, fontWeight: "700" },
   muted: { color: colors.textSecondary, fontSize: fontSize.small, marginTop: 2 },
-  amount: { color: colors.primary, fontWeight: "800", fontSize: fontSize.bodyLarge },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
+  amount: { color: colors.primary, fontSize: fontSize.bodyLarge, fontWeight: "800" },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   badgeText: { fontWeight: "700", fontSize: fontSize.small },
-  levelBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
-  levelBadgeText: { fontWeight: "700", fontSize: fontSize.small },
-  empty: { alignItems: "center", gap: 8, padding: spacing.xl, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight },
+  statsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
+  stat: { flex: 1, backgroundColor: colors.surface, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, alignItems: "center" },
+  statValue: { fontSize: fontSize.h3, fontWeight: "800", color: colors.primary },
+  statLabel: { fontSize: fontSize.small, color: colors.textSecondary, marginTop: 2 },
+  empty: { alignItems: "center", gap: 8, padding: spacing.xl, backgroundColor: colors.surface, borderRadius: radius.lg },
   emptyText: { color: colors.textSecondary },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  statCard: { flexBasis: "47%", flexGrow: 1, padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, alignItems: "center" },
-  statValue: { fontSize: fontSize.h2, fontWeight: "800" },
-  statLabel: { color: colors.textSecondary, fontSize: fontSize.small, marginTop: 2 },
-  notice: {
-    backgroundColor: colors.infoSoft, color: colors.info,
-    padding: spacing.md, borderRadius: radius.md, fontSize: fontSize.small, lineHeight: 18,
-  },
 });
