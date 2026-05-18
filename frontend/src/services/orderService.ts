@@ -139,68 +139,95 @@ export const orderService = {
 
   async listMyOrders() {
     if (!isSupabaseConfigured()) return orderStore.getByClient();
-    const id = await currentProfileId();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, establishments(name)")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => dbOrderToMock(row));
+    try {
+      const id = await currentProfileId();
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, establishments(name)")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => dbOrderToMock(row));
+    } catch {
+      return orderStore.getByClient();
+    }
   },
 
   async listAllOrders() {
     if (!isSupabaseConfigured()) return orderStore.getAll();
-    const { data, error } = await supabase.from("orders").select("*, establishments(name)").order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => dbOrderToMock(row));
+    try {
+      const { data, error } = await supabase.from("orders").select("*, establishments(name)").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => dbOrderToMock(row));
+    } catch {
+      return orderStore.getAll();
+    }
   },
 
   async listAvailableOrders() {
     if (!isSupabaseConfigured()) return orderStore.getAvailable();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, establishments(name)")
-      .is("driver_id", null)
-      .eq("status", "Aguardando entregador")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => dbOrderToMock(row));
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, establishments(name)")
+        .is("driver_id", null)
+        .eq("status", "Aguardando entregador")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => dbOrderToMock(row));
+    } catch {
+      return orderStore.getAvailable();
+    }
   },
 
   async listDriverActive(driverId = DRIVER_ID) {
     if (!isSupabaseConfigured()) return orderStore.getDriverActive(driverId);
-    const id = await currentProfileId();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, establishments(name)")
-      .eq("driver_id", id)
-      .neq("status", "Entregue")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => dbOrderToMock(row));
+    try {
+      const id = await currentProfileId();
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, establishments(name)")
+        .eq("driver_id", id)
+        .neq("status", "Entregue")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => dbOrderToMock(row));
+    } catch {
+      return orderStore.getDriverActive(driverId);
+    }
   },
 
   async listDriverHistory(driverId = DRIVER_ID) {
     if (!isSupabaseConfigured()) return orderStore.getDriverHistory(driverId);
-    const id = await currentProfileId();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, establishments(name)")
-      .eq("driver_id", id)
-      .eq("status", "Entregue")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => dbOrderToMock(row));
+    try {
+      const id = await currentProfileId();
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, establishments(name)")
+        .eq("driver_id", id)
+        .eq("status", "Entregue")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => dbOrderToMock(row));
+    } catch {
+      return orderStore.getDriverHistory(driverId);
+    }
   },
 
   async getOrder(id: string) {
     if (!isSupabaseConfigured()) return orderStore.getById(id);
-    const { data, error } = await supabase.from("orders").select("*, establishments(name)").eq("id", id).single();
-    if (error) throw error;
-    const { data: items } = await supabase.from("order_items").select("*").eq("order_id", id);
-    const { data: chat } = await supabase.from("order_chats").select("*").eq("order_id", id).order("created_at");
-    return dbOrderToMock(data, items ?? [], chat ?? []);
+    try {
+      const { data, error } = await supabase.from("orders").select("*, establishments(name)").eq("id", id).single();
+      if (error) throw error;
+      const { data: items } = await supabase.from("order_items").select("*").eq("order_id", id);
+      const { data: chat } = await supabase.from("order_chats").select("*").eq("order_id", id).order("created_at");
+      return dbOrderToMock(data, items ?? [], chat ?? []);
+    } catch {
+      return orderStore.getById(id);
+    }
   },
 
   async acceptOrder(id: string) {

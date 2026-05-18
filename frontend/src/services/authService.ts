@@ -95,16 +95,24 @@ export const authService = {
 
   async getSupabaseSession(): Promise<Session | null> {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    return data.session;
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return data.session;
+    } catch {
+      return null;
+    }
   },
 
   async getCurrentUser(): Promise<SupabaseUser | null> {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    return data.user;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data.user;
+    } catch {
+      return null;
+    }
   },
 
   async getCurrentProfile(): Promise<Profile | null> {
@@ -118,11 +126,15 @@ export const authService = {
       }
     }
 
-    const user = await this.getCurrentUser();
-    if (!user) return null;
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-    if (error) throw error;
-    return data as Profile;
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) return null;
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (error) throw error;
+      return data as Profile;
+    } catch {
+      return null;
+    }
   },
 
   onAuthStateChange(callback: (event: AuthChangeEvent | "MOCK", session: Session | null) => void) {
@@ -142,9 +154,14 @@ export const authService = {
       const me = toUser(await this.getCurrentProfile());
       return me ? [me] : [];
     }
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data as Profile[]).map((profile) => toUser(profile)!);
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as Profile[]).map((profile) => toUser(profile)!);
+    } catch {
+      const me = toUser(await this.getCurrentProfile());
+      return me ? [me] : [];
+    }
   },
 
   async getById(id: string): Promise<User | null> {
@@ -152,9 +169,13 @@ export const authService = {
       const users = await this.getAllUsers();
       return users.find((user) => user.id === id) ?? null;
     }
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return toUser(data as Profile | null);
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+      if (error) throw error;
+      return toUser(data as Profile | null);
+    } catch {
+      return null;
+    }
   },
 
   subscribe(callback: () => void) {

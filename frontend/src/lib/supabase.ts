@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { SupabaseClient, createClient } from "@supabase/supabase-js";
 
 function normalizeSupabaseUrl(value?: string) {
   return (value ?? "")
@@ -10,11 +10,30 @@ function normalizeSupabaseUrl(value?: string) {
     .replace(/\/+$/, "");
 }
 
-const supabaseUrl = normalizeSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
+function getValidSupabaseUrl(value?: string) {
+  const normalized = normalizeSupabaseUrl(value);
+  if (!normalized) return "";
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    return url.origin;
+  } catch {
+    return "";
+  }
+}
+
+function getValidPublishableKey(value?: string) {
+  const key = value?.trim() ?? "";
+  if (!key || key.length < 20 || /\s/.test(key)) return "";
+  return key;
+}
+
+const supabaseUrl = getValidSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
+const validSupabasePublishableKey = getValidPublishableKey(supabasePublishableKey);
 
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl && supabasePublishableKey);
+  return Boolean(supabaseUrl && validSupabasePublishableKey);
 }
 
 const memoryStorage = {
@@ -27,11 +46,28 @@ const memoryStorage = {
 
 const authStorage = typeof window === "undefined" ? memoryStorage : AsyncStorage;
 
-export const supabase = createClient(supabaseUrl || "https://localhost.supabase.co", supabasePublishableKey || "public-anon-key", {
-  auth: {
-    storage: authStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+function createUnavailableClient() {
+  return new Proxy({}, {
+    get() {
+      throw new Error("Supabase não configurado. Usando modo local/mock.");
+    },
+  }) as SupabaseClient;
+}
+
+function createSupabaseClient() {
+  if (!isSupabaseConfigured()) return createUnavailableClient();
+  try {
+    return createClient(supabaseUrl, validSupabasePublishableKey, {
+      auth: {
+        storage: authStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    });
+  } catch {
+    return createUnavailableClient();
+  }
+}
+
+export const supabase = createSupabaseClient();
