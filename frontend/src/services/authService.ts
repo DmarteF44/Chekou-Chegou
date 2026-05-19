@@ -1,7 +1,10 @@
-import { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { storage } from "@/src/utils/storage";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { Profile } from "@/src/types/domain";
+
+type AuthChangeEvent = string;
+type Session = unknown;
+type SupabaseUser = { id: string; [key: string]: unknown };
 
 const MOCK_PROFILE_KEY = "chekou_mock_profile_v1";
 const FORCE_MOCK_AUTH_KEY = "chekou_force_mock_auth_v1";
@@ -81,7 +84,7 @@ function buildMockProfile(role: "client" | "driver" | "admin", overrides: Partia
     admin: {
       ...defaultMockProfile,
       id: "mock-admin",
-      name: "Admin Master",
+      name: "Dragon Fire Admin",
       email: "admin@chekou.local",
       role: "super_admin",
       driver_status: "none",

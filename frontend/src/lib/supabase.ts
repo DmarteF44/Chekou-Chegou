@@ -1,7 +1,9 @@
-import "@/src/lib/polyfills";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SupabaseClient, createClient } from "@supabase/supabase-js";
+import { FORCE_LOCAL_MODE } from "@/src/config/runtime";
+
+type SupabaseClient = any;
+
+declare const require: (moduleName: string) => { createClient: (url: string, key: string, options: unknown) => SupabaseClient };
 
 function normalizeSupabaseUrl(value?: string) {
   return (value ?? "")
@@ -34,12 +36,14 @@ const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?
 const validSupabasePublishableKey = getValidPublishableKey(supabasePublishableKey);
 
 export function isSupabaseConfigured() {
+  if (FORCE_LOCAL_MODE) return false;
   return Boolean(supabaseUrl && validSupabasePublishableKey);
 }
 
 export function getSupabaseConfigStatus() {
   return {
     configured: isSupabaseConfigured(),
+    forceLocalMode: FORCE_LOCAL_MODE,
     url: Boolean(supabaseUrl),
     rawUrl: Boolean(rawSupabaseUrl),
     publishableKey: Boolean(validSupabasePublishableKey),
@@ -67,6 +71,7 @@ function createUnavailableClient() {
 function createSupabaseClient() {
   if (!isSupabaseConfigured()) return createUnavailableClient();
   try {
+    const { createClient } = require("@supabase/supabase-js");
     return createClient(supabaseUrl, validSupabasePublishableKey, {
       auth: {
         storage: authStorage,

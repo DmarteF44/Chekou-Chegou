@@ -57,8 +57,8 @@ export const adminService = {
       return {
         totalUsers: totalUsers ?? 0,
         totalOrders: orders?.length ?? 0,
-        inProgressOrders: orders?.filter((o) => o.status !== "Entregue").length ?? 0,
-        gmv: orders?.reduce((sum, order) => sum + Number(order.total_paid ?? 0), 0) ?? 0,
+        inProgressOrders: orders?.filter((o: any) => o.status !== "Entregue").length ?? 0,
+        gmv: orders?.reduce((sum: number, order: any) => sum + Number(order.total_paid ?? 0), 0) ?? 0,
         pendingDrivers: pendingDrivers ?? 0,
       };
     } catch (error) {

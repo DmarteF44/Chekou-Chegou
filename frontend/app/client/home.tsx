@@ -23,7 +23,7 @@ export default function ClientHome() {
     const refresh = async () => {
       try {
         const all = await orderService.listMyOrders();
-        setActiveOrders(all.filter((o) => o.status !== "Entregue"));
+        setActiveOrders(all.filter((o: Order) => o.status !== "Entregue"));
         setStores(await catalogService.listStores());
         setPromotions(await catalogService.listPromotions());
         const profile = await authService.getCurrentProfile();

@@ -10,6 +10,7 @@ import { authService, User } from "@/src/services/authService";
 import { driverService, DRIVER_LEVELS, DriverApplication, DriverLevel } from "@/src/services/driverService";
 import { orderService } from "@/src/services/orderService";
 import { money } from "@/src/components/FinancialBreakdown";
+import { Order } from "@/src/data/mock";
 
 export default function DriverDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,8 +28,8 @@ export default function DriverDetail() {
       setStats({
         done: history.length,
         cancelled: 0,
-        balance: history.reduce((a, o) => a + o.deliveryFee, 0),
-        pending: active.reduce((a, o) => a + o.deliveryFee, 0),
+        balance: history.reduce((a: number, o: Order) => a + o.deliveryFee, 0),
+        pending: active.reduce((a: number, o: Order) => a + o.deliveryFee, 0),
       });
     };
     refresh();

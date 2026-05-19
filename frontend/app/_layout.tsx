@@ -1,5 +1,3 @@
-import "@/src/lib/polyfills";
-
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import React from "react";
 import { ErrorBoundaryProps, Stack } from "expo-router";

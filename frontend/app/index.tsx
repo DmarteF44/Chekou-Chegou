@@ -11,6 +11,7 @@ import { Button } from "@/src/components/Button";
 import { authService } from "@/src/services/authService";
 import { getSupabaseConfigStatus, isSupabaseConfigured } from "@/src/lib/supabase";
 import { isBlocked } from "@/src/services/securityService";
+import { FORCE_LOCAL_MODE } from "@/src/config/runtime";
 
 export default function Index() {
   const router = useRouter();
@@ -34,6 +35,10 @@ export default function Index() {
   }
 
   async function submit(mode: "login" | "signup") {
+    if (FORCE_LOCAL_MODE) {
+      Alert.alert("Login real em breve", "O app está temporariamente em modo local para estabilizar o APK.");
+      return;
+    }
     if (!email.trim() || !password.trim()) {
       Alert.alert("Dados incompletos", "Informe email e senha.");
       return;
@@ -122,7 +127,7 @@ export default function Index() {
             Peça de mercados, farmácias e lojas locais sem sair de casa.
           </Text>
           <Text style={styles.debugText}>
-            Supabase: {supabaseStatus.configured ? "configurado" : "não configurado"} • URL: {supabaseStatus.url ? "ok" : "ausente"}
+            Modo: {supabaseStatus.forceLocalMode ? "local" : "online"} • Supabase: {supabaseStatus.configured ? "configurado" : "não configurado"} • URL: {supabaseStatus.url ? "ok" : "ausente"}
           </Text>
 
           <View style={styles.featureRow}>
@@ -169,14 +174,14 @@ export default function Index() {
               testID="auth-password-input"
             />
             <Button
-              title="Entrar"
+              title={FORCE_LOCAL_MODE ? "Entrar real (em breve)" : "Entrar"}
               onPress={() => submit("login")}
               loading={loading}
               testID="auth-login-button"
               icon={<Ionicons name="log-in" size={20} color={colors.white} />}
             />
             <Button
-              title="Criar conta"
+              title={FORCE_LOCAL_MODE ? "Criar conta real (em breve)" : "Criar conta"}
               variant="secondary"
               onPress={() => submit("signup")}
               loading={loading}
@@ -205,6 +210,14 @@ export default function Index() {
               loading={loading}
               testID="role-driver-button"
               icon={<Ionicons name="bicycle" size={20} color={colors.primary} />}
+            />
+            <Button
+              title="Admin local"
+              variant="ghost"
+              onPress={() => enterLocal("admin")}
+              loading={loading}
+              testID="role-admin-button"
+              icon={<Ionicons name="shield-checkmark" size={20} color={colors.primary} />}
             />
           </View>
 

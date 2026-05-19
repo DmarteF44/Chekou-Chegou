@@ -148,7 +148,7 @@ export const orderService = {
         .eq("client_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row) => dbOrderToMock(row));
+      return (data ?? []).map((row: any) => dbOrderToMock(row));
     } catch {
       return orderStore.getByClient();
     }
@@ -159,7 +159,7 @@ export const orderService = {
     try {
       const { data, error } = await supabase.from("orders").select("*, establishments(name)").order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row) => dbOrderToMock(row));
+      return (data ?? []).map((row: any) => dbOrderToMock(row));
     } catch {
       return orderStore.getAll();
     }
@@ -175,7 +175,7 @@ export const orderService = {
         .eq("status", "Aguardando entregador")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row) => dbOrderToMock(row));
+      return (data ?? []).map((row: any) => dbOrderToMock(row));
     } catch {
       return orderStore.getAvailable();
     }
@@ -193,7 +193,7 @@ export const orderService = {
         .neq("status", "Entregue")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row) => dbOrderToMock(row));
+      return (data ?? []).map((row: any) => dbOrderToMock(row));
     } catch {
       return orderStore.getDriverActive(driverId);
     }
@@ -211,7 +211,7 @@ export const orderService = {
         .eq("status", "Entregue")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row) => dbOrderToMock(row));
+      return (data ?? []).map((row: any) => dbOrderToMock(row));
     } catch {
       return orderStore.getDriverHistory(driverId);
     }
