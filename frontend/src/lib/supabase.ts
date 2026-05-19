@@ -29,11 +29,21 @@ function getValidPublishableKey(value?: string) {
 }
 
 const supabaseUrl = getValidSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
+const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? "";
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
 const validSupabasePublishableKey = getValidPublishableKey(supabasePublishableKey);
 
 export function isSupabaseConfigured() {
   return Boolean(supabaseUrl && validSupabasePublishableKey);
+}
+
+export function getSupabaseConfigStatus() {
+  return {
+    configured: isSupabaseConfigured(),
+    url: Boolean(supabaseUrl),
+    rawUrl: Boolean(rawSupabaseUrl),
+    publishableKey: Boolean(validSupabasePublishableKey),
+  };
 }
 
 const memoryStorage = {

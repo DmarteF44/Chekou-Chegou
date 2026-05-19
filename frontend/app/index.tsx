@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, fontSize, radius } from "@/src/theme/colors";
 import { Button } from "@/src/components/Button";
 import { authService } from "@/src/services/authService";
-import { isSupabaseConfigured } from "@/src/lib/supabase";
+import { getSupabaseConfigStatus, isSupabaseConfigured } from "@/src/lib/supabase";
 import { isBlocked } from "@/src/services/securityService";
 
 export default function Index() {
@@ -19,6 +19,7 @@ export default function Index() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const supabaseStatus = getSupabaseConfigStatus();
 
   function redirectByProfile(profile: Awaited<ReturnType<typeof authService.getCurrentProfile>>) {
     if (!profile || isBlocked(profile)) {
@@ -43,13 +44,49 @@ export default function Index() {
     }
     setLoading(true);
     try {
-      if (mode === "signup") await authService.signUp({ email: email.trim(), password, name: name.trim(), phone: phone.trim() });
-      else await authService.login(email.trim(), password);
+      const result = mode === "signup"
+        ? await authService.signUp({ email: email.trim(), password, name: name.trim(), phone: phone.trim() })
+        : await authService.login(email.trim(), password);
+
+      if (mode === "signup" && isSupabaseConfigured() && !(result as { session?: unknown } | null)?.session) {
+        Alert.alert("Conta criada", "Confirme seu e-mail ou tente entrar novamente.");
+        return;
+      }
+
       const profile = await authService.getCurrentProfile();
+      if (!profile) {
+        Alert.alert(
+          "Perfil não encontrado",
+          "Conta criada/autenticada, mas perfil ainda não foi encontrado. Tente novamente em alguns segundos.",
+        );
+        return;
+      }
       redirectByProfile(profile);
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object"
+            ? JSON.stringify(error)
+            : String(error);
       console.error("Auth submit failed", error);
-      Alert.alert("Não foi possível entrar", "Tente novamente.");
+      Alert.alert("Não foi possível entrar", message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function enterLocal(role: "client" | "driver" | "admin" = "client") {
+    setLoading(true);
+    try {
+      await authService.loginMock(role);
+      if (role === "driver") router.replace("/driver/home");
+      else if (role === "admin") router.replace("/admin");
+      else router.replace("/client/home");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Local login failed", error);
+      Alert.alert("Não foi possível entrar em modo local", message);
     } finally {
       setLoading(false);
     }
@@ -83,6 +120,9 @@ export default function Index() {
           <Text style={styles.brand}>Chekou Ganhou</Text>
           <Text style={styles.tagline}>
             Peça de mercados, farmácias e lojas locais sem sair de casa.
+          </Text>
+          <Text style={styles.debugText}>
+            Supabase: {supabaseStatus.configured ? "configurado" : "não configurado"} • URL: {supabaseStatus.url ? "ok" : "ausente"}
           </Text>
 
           <View style={styles.featureRow}>
@@ -129,7 +169,7 @@ export default function Index() {
               testID="auth-password-input"
             />
             <Button
-              title={isSupabaseConfigured() ? "Entrar" : "Entrar em modo local"}
+              title="Entrar"
               onPress={() => submit("login")}
               loading={loading}
               testID="auth-login-button"
@@ -144,15 +184,25 @@ export default function Index() {
               icon={<Ionicons name="person-add" size={20} color={colors.primary} />}
             />
             <Button
+              title="Entrar em modo local"
+              variant="secondary"
+              onPress={() => enterLocal("client")}
+              loading={loading}
+              testID="auth-local-button"
+              icon={<Ionicons name="phone-portrait" size={20} color={colors.primary} />}
+            />
+            <Button
               title="Entrar como Cliente"
-              onPress={() => router.push("/client/home")}
+              onPress={() => enterLocal("client")}
+              loading={loading}
               testID="role-client-button"
               icon={<Ionicons name="person" size={20} color={colors.white} />}
             />
             <Button
               title="Entrar como Entregador"
               variant="secondary"
-              onPress={() => router.push("/driver/home")}
+              onPress={() => enterLocal("driver")}
+              loading={loading}
               testID="role-driver-button"
               icon={<Ionicons name="bicycle" size={20} color={colors.primary} />}
             />
@@ -160,7 +210,7 @@ export default function Index() {
 
           <TouchableOpacity
             style={styles.adminBtn}
-            onLongPress={() => router.push("/admin")}
+            onLongPress={() => enterLocal("admin")}
             delayLongPress={800}
             testID="admin-hidden-button"
           >
@@ -229,6 +279,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
     lineHeight: 22,
+  },
+  debugText: {
+    marginTop: spacing.sm,
+    textAlign: "center",
+    color: colors.textTertiary,
+    fontSize: fontSize.small,
   },
   featureRow: {
     flexDirection: "row",

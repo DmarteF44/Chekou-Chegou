@@ -5,9 +5,14 @@ import { Profile, UserRole } from "@/src/types/domain";
 export const adminService = {
   async listUsers() {
     if (!isSupabaseConfigured()) return [] as Profile[];
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data as Profile[];
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Profile[];
+    } catch (error) {
+      console.error("Admin list users failed", error);
+      return [] as Profile[];
+    }
   },
 
   async updateUserRole(userId: string, role: UserRole, actor?: Profile | null) {
@@ -43,18 +48,30 @@ export const adminService = {
       };
     }
 
-    const [{ count: totalUsers }, { data: orders }, { count: pendingDrivers }] = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("orders").select("total_paid,status"),
-      supabase.from("driver_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    ]);
-    return {
-      totalUsers: totalUsers ?? 0,
-      totalOrders: orders?.length ?? 0,
-      inProgressOrders: orders?.filter((o) => o.status !== "Entregue").length ?? 0,
-      gmv: orders?.reduce((sum, order) => sum + Number(order.total_paid ?? 0), 0) ?? 0,
-      pendingDrivers: pendingDrivers ?? 0,
-    };
+    try {
+      const [{ count: totalUsers }, { data: orders }, { count: pendingDrivers }] = await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("orders").select("total_paid,status"),
+        supabase.from("driver_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
+      return {
+        totalUsers: totalUsers ?? 0,
+        totalOrders: orders?.length ?? 0,
+        inProgressOrders: orders?.filter((o) => o.status !== "Entregue").length ?? 0,
+        gmv: orders?.reduce((sum, order) => sum + Number(order.total_paid ?? 0), 0) ?? 0,
+        pendingDrivers: pendingDrivers ?? 0,
+      };
+    } catch (error) {
+      console.error("Admin dashboard summary failed", error);
+      const orders = await orderStore.getAll();
+      return {
+        totalUsers: 1,
+        totalOrders: orders.length,
+        inProgressOrders: orders.filter((o) => o.status !== "Entregue").length,
+        gmv: orders.reduce((sum, order) => sum + order.total, 0),
+        pendingDrivers: 0,
+      };
+    }
   },
 
   async stats() {

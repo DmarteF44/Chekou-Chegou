@@ -30,8 +30,14 @@ export default function Login() {
       }
       router.replace("/");
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object"
+            ? JSON.stringify(error)
+            : String(error);
       console.error("Login failed", error);
-      Alert.alert("Não foi possível entrar", "Tente novamente.");
+      Alert.alert("Não foi possível entrar", message);
     } finally {
       setLoading(false);
     }

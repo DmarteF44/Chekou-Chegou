@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { Profile } from "@/src/types/domain";
 
 const MOCK_PROFILE_KEY = "chekou_mock_profile_v1";
+const FORCE_MOCK_AUTH_KEY = "chekou_force_mock_auth_v1";
 
 export type User = Profile & {
   email: string;
@@ -45,8 +46,58 @@ async function setMockProfile(profile: Profile) {
   return profile;
 }
 
+async function getStoredMockProfile() {
+  const raw = await storage.getItem<string>(MOCK_PROFILE_KEY, "");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Profile;
+  } catch {
+    return null;
+  }
+}
+
+async function isMockAuthForced() {
+  return Boolean(await storage.getItem<boolean>(FORCE_MOCK_AUTH_KEY, false));
+}
+
+function buildMockProfile(role: "client" | "driver" | "admin", overrides: Partial<Profile> = {}): Profile {
+  const profileByRole: Record<"client" | "driver" | "admin", Profile> = {
+    client: {
+      ...defaultMockProfile,
+      id: "mock-client",
+      name: "Maria Cliente",
+      email: "cliente@chekou.local",
+      role: "client",
+      driver_status: "none",
+    },
+    driver: {
+      ...defaultMockProfile,
+      id: "driver_1",
+      name: "João Entregador",
+      email: "driver@chekou.local",
+      role: "driver",
+      driver_status: "approved",
+    },
+    admin: {
+      ...defaultMockProfile,
+      id: "mock-admin",
+      name: "Admin Master",
+      email: "admin@chekou.local",
+      role: "super_admin",
+      driver_status: "none",
+    },
+  };
+  return { ...profileByRole[role], ...overrides };
+}
+
 export const authService = {
+  async loginMock(role: "client" | "driver" | "admin" = "client") {
+    await storage.setItem(FORCE_MOCK_AUTH_KEY, true);
+    return setMockProfile(buildMockProfile(role));
+  },
+
   async signUp(params: { email: string; password: string; name: string; phone?: string }) {
+    await storage.removeItem(FORCE_MOCK_AUTH_KEY);
     if (!isSupabaseConfigured()) {
       return setMockProfile({ ...defaultMockProfile, id: `mock_${Date.now()}`, email: params.email, name: params.name, phone: params.phone });
     }
@@ -58,7 +109,7 @@ export const authService = {
         options: { data: { name: params.name, phone: params.phone } },
       });
       if (error) throw error;
-      return data.user;
+      return data;
     } catch (error) {
       console.error("Supabase signup failed", error);
       throw error;
@@ -66,16 +117,12 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
+    await storage.removeItem(FORCE_MOCK_AUTH_KEY);
     if (!isSupabaseConfigured()) {
-      const role = email.includes("admin") ? "super_admin" : email.includes("driver") ? "driver" : "client";
-      return setMockProfile({
-        ...defaultMockProfile,
-        id: role === "driver" ? "driver_1" : role === "super_admin" ? "mock-admin" : "mock-client",
+      const role = email.includes("admin") ? "admin" : email.includes("driver") || email.includes("entregador") ? "driver" : "client";
+      return setMockProfile(buildMockProfile(role, {
         email,
-        name: role === "driver" ? "João Entregador" : role === "super_admin" ? "Admin Master" : "Maria Cliente",
-        role,
-        driver_status: role === "driver" ? "approved" : "none",
-      } as Profile);
+      }));
     }
 
     try {
@@ -89,8 +136,9 @@ export const authService = {
   },
 
   async logout() {
+    await storage.removeItem(MOCK_PROFILE_KEY);
+    await storage.removeItem(FORCE_MOCK_AUTH_KEY);
     if (!isSupabaseConfigured()) {
-      await storage.removeItem(MOCK_PROFILE_KEY);
       notify();
       return;
     }
@@ -114,7 +162,7 @@ export const authService = {
   },
 
   async getSupabaseSession(): Promise<Session | null> {
-    if (!isSupabaseConfigured()) return null;
+    if (!isSupabaseConfigured() || (await isMockAuthForced())) return null;
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
@@ -126,7 +174,7 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<SupabaseUser | null> {
-    if (!isSupabaseConfigured()) return null;
+    if (!isSupabaseConfigured() || (await isMockAuthForced())) return null;
     try {
       const { data, error } = await supabase.auth.getUser();
       if (error) throw error;
@@ -138,14 +186,13 @@ export const authService = {
   },
 
   async getCurrentProfile(): Promise<Profile | null> {
+    const storedMock = await getStoredMockProfile();
+    if (await isMockAuthForced()) {
+      return storedMock ?? defaultMockProfile;
+    }
+
     if (!isSupabaseConfigured()) {
-      const raw = await storage.getItem<string>(MOCK_PROFILE_KEY, "");
-      if (!raw) return defaultMockProfile;
-      try {
-        return JSON.parse(raw) as Profile;
-      } catch {
-        return defaultMockProfile;
-      }
+      return storedMock ?? defaultMockProfile;
     }
 
     try {
@@ -173,7 +220,7 @@ export const authService = {
   },
 
   async getAllUsers(): Promise<User[]> {
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || (await isMockAuthForced())) {
       const me = toUser(await this.getCurrentProfile());
       return me ? [me] : [];
     }
@@ -188,7 +235,7 @@ export const authService = {
   },
 
   async getById(id: string): Promise<User | null> {
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || (await isMockAuthForced())) {
       const users = await this.getAllUsers();
       return users.find((user) => user.id === id) ?? null;
     }
