@@ -22,13 +22,19 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const u = await authService.login(email, pw);
-    setLoading(false);
-    if (!u) {
-      Alert.alert("Login falhou", "E-mail ou senha incorretos.");
-      return;
+    try {
+      const u = await authService.login(email, pw);
+      if (!u) {
+        Alert.alert("Login falhou", "E-mail ou senha incorretos.");
+        return;
+      }
+      router.replace("/");
+    } catch (error) {
+      console.error("Login failed", error);
+      Alert.alert("Não foi possível entrar", "Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    router.replace("/");
   }
 
   function fill(e: string, p: string) {
@@ -37,7 +43,7 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.logo}><Text style={styles.logoText}>CG</Text></View>
           <Text style={styles.brand}>Chekou Ganhou</Text>
@@ -93,7 +99,7 @@ function DemoBtn({ onPress, label, sub, testID }: { onPress: () => void; label: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  scroll: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
+  scroll: { padding: spacing.lg, gap: spacing.md, flexGrow: 1, paddingBottom: 40 },
   logo: {
     width: 72, height: 72, borderRadius: 22, backgroundColor: colors.primary,
     alignItems: "center", justifyContent: "center", alignSelf: "center", marginTop: spacing.lg,

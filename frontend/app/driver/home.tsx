@@ -19,9 +19,21 @@ export default function DriverHome() {
 
   useEffect(() => {
     const refresh = async () => {
-      setAvailable(await orderService.listAvailableOrders());
-      setActive(await orderService.listDriverActive(DRIVER_ID));
-      setCompleted(await orderService.listDriverHistory(DRIVER_ID));
+      try {
+        const [availableOrders, activeOrders, completedOrders] = await Promise.all([
+          orderService.listAvailableOrders(),
+          orderService.listDriverActive(DRIVER_ID),
+          orderService.listDriverHistory(DRIVER_ID),
+        ]);
+        setAvailable(availableOrders ?? []);
+        setActive(activeOrders ?? []);
+        setCompleted(completedOrders ?? []);
+      } catch (error) {
+        console.error("Driver home load failed", error);
+        setAvailable([]);
+        setActive([]);
+        setCompleted([]);
+      }
     };
     refresh();
   }, []);

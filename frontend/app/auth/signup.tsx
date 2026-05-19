@@ -24,19 +24,25 @@ export default function Signup() {
       return;
     }
     setLoading(true);
-    const u = await authService.signup({ name, email, phone, password: pw });
-    setLoading(false);
-    if (!u) {
-      Alert.alert("Erro", "Já existe um cadastro com este e-mail.");
-      return;
+    try {
+      const u = await authService.signup({ name, email, phone, password: pw });
+      if (!u) {
+        Alert.alert("Erro", "Já existe um cadastro com este e-mail.");
+        return;
+      }
+      router.replace("/");
+    } catch (error) {
+      console.error("Signup failed", error);
+      Alert.alert("Não foi possível entrar", "Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    router.replace("/");
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Header title="Criar conta" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Field label="Nome completo" value={name} onChange={setName} testID="signup-name" />
           <Field label="Telefone / WhatsApp" value={phone} onChange={setPhone} keyboardType="phone-pad" testID="signup-phone" />
@@ -74,7 +80,7 @@ function Field({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.md, gap: spacing.md },
+  scroll: { padding: spacing.md, gap: spacing.md, flexGrow: 1, paddingBottom: 40 },
   label: { color: colors.textSecondary, fontWeight: "600", fontSize: fontSize.small },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,

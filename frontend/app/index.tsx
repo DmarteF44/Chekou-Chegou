@@ -1,5 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert } from "react-native";
+import {
+  View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert,
+  KeyboardAvoidingView, Platform,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -45,7 +48,8 @@ export default function Index() {
       const profile = await authService.getCurrentProfile();
       redirectByProfile(profile);
     } catch (error) {
-      Alert.alert("Não foi possível entrar", error instanceof Error ? error.message : "Tente novamente.");
+      console.error("Auth submit failed", error);
+      Alert.alert("Não foi possível entrar", "Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +57,14 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.heroWrap}>
           <Image
             source={{
@@ -157,6 +168,7 @@ export default function Index() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -174,7 +186,7 @@ function Feature({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label:
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  scroll: { flexGrow: 1 },
+  scroll: { flexGrow: 1, paddingBottom: 40 },
   heroWrap: { width: "100%", height: 260, position: "relative" },
   hero: { width: "100%", height: "100%" },
   heroOverlay: {

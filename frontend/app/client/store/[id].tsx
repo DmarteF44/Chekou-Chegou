@@ -117,7 +117,7 @@ export default function StoreOrder() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Header title="Criar Pedido" subtitle={store?.name ?? "Carregando"} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">

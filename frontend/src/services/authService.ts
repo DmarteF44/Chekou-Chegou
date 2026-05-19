@@ -51,13 +51,18 @@ export const authService = {
       return setMockProfile({ ...defaultMockProfile, id: `mock_${Date.now()}`, email: params.email, name: params.name, phone: params.phone });
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: params.email,
-      password: params.password,
-      options: { data: { name: params.name, phone: params.phone } },
-    });
-    if (error) throw error;
-    return data.user;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: params.email,
+        password: params.password,
+        options: { data: { name: params.name, phone: params.phone } },
+      });
+      if (error) throw error;
+      return data.user;
+    } catch (error) {
+      console.error("Supabase signup failed", error);
+      throw error;
+    }
   },
 
   async login(email: string, password: string) {
@@ -73,9 +78,14 @@ export const authService = {
       } as Profile);
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Supabase login failed", error);
+      throw error;
+    }
   },
 
   async logout() {
@@ -84,13 +94,23 @@ export const authService = {
       notify();
       return;
     }
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    notify();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      notify();
+    } catch (error) {
+      console.error("Supabase logout failed", error);
+      throw error;
+    }
   },
 
   async getSession(): Promise<User | null> {
-    return toUser(await this.getCurrentProfile());
+    try {
+      return toUser(await this.getCurrentProfile());
+    } catch (error) {
+      console.error("Get session failed", error);
+      return null;
+    }
   },
 
   async getSupabaseSession(): Promise<Session | null> {
@@ -99,7 +119,8 @@ export const authService = {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
       return data.session;
-    } catch {
+    } catch (error) {
+      console.error("Get Supabase session failed", error);
       return null;
     }
   },
@@ -110,7 +131,8 @@ export const authService = {
       const { data, error } = await supabase.auth.getUser();
       if (error) throw error;
       return data.user;
-    } catch {
+    } catch (error) {
+      console.error("Get Supabase user failed", error);
       return null;
     }
   },
@@ -132,7 +154,8 @@ export const authService = {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (error) throw error;
       return data as Profile;
-    } catch {
+    } catch (error) {
+      console.error("Get current profile failed", error);
       return null;
     }
   },
